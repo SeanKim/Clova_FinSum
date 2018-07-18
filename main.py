@@ -2,7 +2,7 @@
 import json
 from news2 import Clova_News
 from data import summary_all, load_data
-
+import pandas as pd
 
 class ClovaServer(BaseHTTPRequestHandler):
     def set_header(self):
@@ -20,8 +20,8 @@ class ClovaServer(BaseHTTPRequestHandler):
             self.wfile.write('다시 한 번 말씀해 주세요.'.encode('utf-8'))
 
     def do_POST(self):
-        content_length = int(self.headers['Content-Length']) # <--- Gets the size of data
-        post_data = self.rfile.read(content_length) # <--- Gets the data itself
+        content_length = int(self.headers['Content-Length'])
+        post_data = self.rfile.read(content_length)
         self.body = json.loads(post_data.decode('utf-8'))
         # user_id로 저장된 정보를 불러옵니다.
         self.user_data = load_data(self.body['context']['System']['user']['userId'])
@@ -50,8 +50,7 @@ class ClovaServer(BaseHTTPRequestHandler):
     def recentnews(self):
         # 3문장으로 요약하도록 해 두었음, 결과가 적절하지 않을 시 수정 요망
         symbol = self.body['request']['intent']['slots']['Symbol']['value']
-        # 회사명을 코드로 바꾸는 함수 필요
-        symbol = '000880'
+        symbol = symbol_dict[symbol]
         news_list = chrome.recent_news(symbol)
         summaries = summary_all(news_list)
         summaries['speech_text'] = summaries['title'] + '\n' + summaries['summary']
@@ -60,6 +59,8 @@ class ClovaServer(BaseHTTPRequestHandler):
         for ll in speech_list:
             speech_text += ll
         self.speech_type = 'SpeechList'
+        # Speech List이므로 딕셔너리의 리스트를 반환
+        # https://developers.naver.com/console/clova/guide/CEK/References/CEK_API.md#CustomExtSpeechInfoObject
         self.speech_body = speech_text
 
 
@@ -67,6 +68,8 @@ class ClovaServer(BaseHTTPRequestHandler):
 
 def run(server_class=HTTPServer, handler_class=ClovaServer, port=80):
     global chrome
+    global symbol_dict
+    symbol_dict = pd.read_csv('symbols.csv', index_col='Name', dtype=str).to_dict()
     chrome = Clova_News()
     server_address = ('', port)
     httpd = server_class(server_address, handler_class)
