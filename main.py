@@ -19,6 +19,10 @@ class ClovaServer(BaseHTTPRequestHandler):
         except AttributeError:
             self.wfile.write('다시 한 번 말씀해 주세요.'.encode('utf-8'))
 
+        del self.speech_body
+        del self.speech_type
+        del self.shouldEndSession
+
     def do_POST(self):
         content_length = int(self.headers['Content-Length'])
         post_data = self.rfile.read(content_length)
@@ -36,7 +40,7 @@ class ClovaServer(BaseHTTPRequestHandler):
                                        self.speech_type,
                                    "values":
                                        None},
-                              'directives': None, 'shouldEndSession': True}}
+                              'directives': None, 'shouldEndSession': self.shouldEndSession}}
 
         if self.speech_type == 'SimpleSpeech':
             response_body['response']['outputSpeech']['values'] = {"lang": 'ko', 'type': 'PlainText',
@@ -49,7 +53,7 @@ class ClovaServer(BaseHTTPRequestHandler):
 
     def recentnews(self):
         # 3문장으로 요약하도록 해 두었음, 결과가 적절하지 않을 시 수정 요망
-        symbol = self.body['request']['intent']['slots']['Symbol']['value']
+        symbol = self.body['request']['intent']['slots']['symbol']['value']
         symbol = symbol_dict[symbol]
         news_list = chrome.recent_news(symbol)
         summaries = summary_all(news_list)
@@ -59,9 +63,10 @@ class ClovaServer(BaseHTTPRequestHandler):
         for ll in speech_list:
             speech_text += ll
         self.speech_type = 'SpeechList'
-        # Speech List이므로 딕셔너리의 리스트를 반환
+        # Speech List이므로 딕셔너리의 리스트를 할당
         # https://developers.naver.com/console/clova/guide/CEK/References/CEK_API.md#CustomExtSpeechInfoObject
         self.speech_body = speech_text
+        self.shouldEndSession = True
 
 
 
