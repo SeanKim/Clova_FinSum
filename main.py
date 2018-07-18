@@ -14,7 +14,7 @@ class ClovaServer(BaseHTTPRequestHandler):
         # do_main 함수는 json request 내 name과 똑같은 이름의 내부 함수를 실행하므로
         # 원하는 동작을 일으킬 함수는 그에 해당하는 intent와 똑같은 이름으로 정해줘야 함
         try:
-            self.set_response(getattr(self, self.body['request']['intent']['name'])())
+            self.set_response(*getattr(self, self.body['request']['intent']['name'])())
             self.do_response()
         except AttributeError:
             self.wfile.write('다시 한 번 말씀해 주세요.'.encode('utf-8'))
@@ -65,11 +65,6 @@ class ClovaServer(BaseHTTPRequestHandler):
             [simmilars.append(key) if symbol in key else None for key in symbol_dict.keys()]
             return 'SimpleSpeech', '해당하는 종목이 없습니다. 코스피 혹은 코스닥시장에 상장 된 종목만 가능합니다. 다시 말씀해 주세요.', False \
                 if len(simmilars) == 0 else 'SimpleSpeech', symbol + '이 들어가는 종목은 ' +', '.join(simmilars) + '이 있습니다. 이 중 하나를 말씀해 주세요.', False
-
-
-
-
-
 
     def recentnews(self):
         # 3문장으로 요약하도록 해 두었음, 결과가 적절하지 않을 시 수정 요망
