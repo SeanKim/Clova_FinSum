@@ -110,7 +110,7 @@ class Clova_News():
 
 
                 print()
-                time.sleep(random.randrange(0, 2))
+                time.sleep(random.randrange(float(5) / 100, float(1) / 10))
 
     def get_filing(self):  # 인스턴스 데이터프레임에 Profile이라는 column을 만들고, 해당 칼럼에 Ticker에 해당하는 Profile을 저장함
         self.ticker_df['Profile'] = np.nan
@@ -138,7 +138,7 @@ class Clova_News():
                 print("error on :", ticker)
 
             print()
-            time.sleep(random.randrange(0, 2))
+            time.sleep(random.randrange(float(5)/100, float(1)/10))
 
     def get_filing_api(self, start_date=(datetime.date.today() - datetime.timedelta(1)).strftime('%Y%m%d')):
         for i, ticker in enumerate(self.ticker_df['Ticker'].values):
