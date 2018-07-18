@@ -3,6 +3,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 from news2 import Clova_News
 from data import summary_all
+import os
 
 class ClovaServer(BaseHTTPRequestHandler):
     def set_header(self):
@@ -14,6 +15,9 @@ class ClovaServer(BaseHTTPRequestHandler):
         content_length = int(self.headers['Content-Length']) # <--- Gets the size of data
         post_data = self.rfile.read(content_length) # <--- Gets the data itself
         body = json.loads(post_data.decode('utf-8'))
+
+        ## user_id로 저장된 정보를 불러옵니다.
+
 
         self.set_header()
         if body['request']['intent']['name'] == 'recentnews':
