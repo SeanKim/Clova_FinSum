@@ -58,7 +58,7 @@ class ClovaServer(BaseHTTPRequestHandler):
         self.wfile.write(json.dumps(response_body, ensure_ascii=False).encode('utf-8'))
 
     def no_symbol(self, symbol):
-        if symbol == None or 'symbol' not in locals():
+        if symbol == None:
             return 'SimpleSpeech', '해당하는 종목이 없습니다. 코스피 혹은 코스닥시장에 상장 된 종목만 가능합니다. 다시 말씀해 주세요.', False
         else:
             simmilars = []
@@ -72,6 +72,7 @@ class ClovaServer(BaseHTTPRequestHandler):
             symbol = self.body['request']['intent']['slots']['symbol']['value']
             symbol = symbol_dict[symbol]
         except (KeyError, TypeError) as e:
+            symbol = None if 'symbol' not in locals() else symbol
             return self.no_symbol(symbol)
         news_list = chrome.recent_news(symbol)
         summaries = summary_all(news_list)
