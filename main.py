@@ -17,7 +17,8 @@ class ClovaServer(BaseHTTPRequestHandler):
             self.set_response(*getattr(self, self.body['request']['intent']['name'])())
             self.do_response()
         except AttributeError:
-            self.wfile.write('다시 한 번 말씀해 주세요.'.encode('utf-8'))
+            self.set_response('SimpleSpeech', '다시 한 번 말씀해 주세요', False)
+            self.do_response()
 
         del self.speech_body, self.speech_type, self.shouldEndSession
 
