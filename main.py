@@ -32,7 +32,7 @@ class ClovaServer(BaseHTTPRequestHandler):
         self.set_header()
         self.do_main()
 
-    def set_response(self, speech_type, speech_body, shouldEndSession)
+    def set_response(self, speech_type, speech_body, shouldEndSession):
         self.speech_type = speech_type
         self.speech_body = speech_body
         self.shouldEndSession = shouldEndSession
@@ -65,7 +65,7 @@ class ClovaServer(BaseHTTPRequestHandler):
             [simmilars.append(key) if symbol in key else None for key in symbol_dict.keys()]
             return 'SimpleSpeech', '해당하는 종목이 없습니다. 코스피 혹은 코스닥시장에 상장 된 종목만 가능합니다. 다시 말씀해 주세요.', False \
                 if len(simmilars) == 0 else 'SimpleSpeech', symbol + '이 들어가는 종목은 ' +', '.join(simmilars) + '이 있습니다. 이 중 하나를 말씀해 주세요.', False
-                    
+
 
 
 
