@@ -74,7 +74,7 @@ class ClovaServer(BaseHTTPRequestHandler):
 def run(server_class=HTTPServer, handler_class=ClovaServer, port=80):
     global chrome
     global symbol_dict
-    symbol_dict = pd.read_csv('symbols.csv', index_col='Name', dtype=str).to_dict()
+    symbol_dict = pd.read_csv('symbols.csv', index_col='Name', dtype=str).to_dict()['Code']
     chrome = Clova_News()
     server_address = ('', port)
     httpd = server_class(server_address, handler_class)
