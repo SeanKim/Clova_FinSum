@@ -71,7 +71,7 @@ class ClovaServer(BaseHTTPRequestHandler):
         symbol = self.body['request']['intent']['slots']['symbol']['value']
         try:
             symbol = symbol_dict[symbol]
-        except KeyError or TypeError:
+        except (KeyError, TypeError):
             return self.no_symbol(symbol)
         news_list = chrome.recent_news(symbol)
         summaries = summary_all(news_list)
