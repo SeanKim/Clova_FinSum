@@ -68,10 +68,10 @@ class ClovaServer(BaseHTTPRequestHandler):
 
     def recentnews(self):
         # 3문장으로 요약하도록 해 두었음, 결과가 적절하지 않을 시 수정 요망
-        symbol = self.body['request']['intent']['slots']['symbol']['value']
         try:
+            symbol = self.body['request']['intent']['slots']['symbol']['value']
             symbol = symbol_dict[symbol]
-        except (KeyError, TypeError):
+        except (KeyError, TypeError) as e:
             return self.no_symbol(symbol)
         news_list = chrome.recent_news(symbol)
         summaries = summary_all(news_list)
