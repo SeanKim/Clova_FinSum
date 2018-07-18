@@ -14,7 +14,7 @@ class ClovaServer(BaseHTTPRequestHandler):
         # do_main 함수는 json request 내 name과 똑같은 이름의 내부 함수를 실행하므로
         # 원하는 동작을 일으킬 함수는 그에 해당하는 intent와 똑같은 이름으로 정해줘야 함
         try:
-            getattr(self, self.body['request']['intent']['name'])()
+            self.set_response(getattr(self, self.body['request']['intent']['name'])())
             self.do_response()
         except AttributeError:
             self.wfile.write('다시 한 번 말씀해 주세요.'.encode('utf-8'))
@@ -32,6 +32,11 @@ class ClovaServer(BaseHTTPRequestHandler):
         self.set_header()
         self.do_main()
 
+    def set_response(self, speech_type, speech_body, shouldEndSession)
+        self.speech_type = speech_type
+        self.speech_body = speech_body
+        self.shouldEndSession = shouldEndSession
+
     def do_response(self):
         response_body = {'version': "", "sessionAttributes": None,
                          "response":
@@ -40,7 +45,8 @@ class ClovaServer(BaseHTTPRequestHandler):
                                        self.speech_type,
                                    "values":
                                        None},
-                              'directives': None, 'shouldEndSession': self.shouldEndSession}}
+                              'directives': None,
+                              'shouldEndSession': self.shouldEndSession}}
 
         if self.speech_type == 'SimpleSpeech':
             response_body['response']['outputSpeech']['values'] = {"lang": 'ko', 'type': 'PlainText',
@@ -51,22 +57,38 @@ class ClovaServer(BaseHTTPRequestHandler):
 
         self.wfile.write(json.dumps(response_body, ensure_ascii=False).encode('utf-8'))
 
+    def no_symbol(self, symbol):
+        if symbol == None:
+            return 'SimpleSpeech', '해당하는 종목이 없습니다. 코스피 혹은 코스닥시장에 상장 된 종목만 가능합니다. 다시 말씀해 주세요.', False
+        else:
+            simmilars = []
+            [simmilars.append(key) if symbol in key else None for key in symbol_dict.keys()]
+            return 'SimpleSpeech', '해당하는 종목이 없습니다. 코스피 혹은 코스닥시장에 상장 된 종목만 가능합니다. 다시 말씀해 주세요.', False \
+                if len(simmilars) == 0 else 'SimpleSpeech', symbol + '이 들어가는 종목은 ' +', '.join(simmilars) + '이 있습니다. 이 중 하나를 말씀해 주세요.', False
+                    
+
+
+
+
+
     def recentnews(self):
         # 3문장으로 요약하도록 해 두었음, 결과가 적절하지 않을 시 수정 요망
         symbol = self.body['request']['intent']['slots']['symbol']['value']
-        symbol = symbol_dict[symbol]
+        try:
+            symbol = symbol_dict[symbol]
+        except KeyError:
+            return self.no_symbol(symbol)
         news_list = chrome.recent_news(symbol)
         summaries = summary_all(news_list)
         summaries['speech_text'] = summaries['title'] + '\n' + summaries['summary']
         speech_list = [[v['title'], v['summary'], '다음 뉴스입니다.'] for i,v in summaries.iterrows()]
         speech_text = []
-        for ll in speech_list:
-            speech_text += ll
-        self.speech_type = 'SpeechList'
         # Speech List이므로 딕셔너리의 리스트를 할당
         # https://developers.naver.com/console/clova/guide/CEK/References/CEK_API.md#CustomExtSpeechInfoObject
-        self.speech_body = speech_text
-        self.shouldEndSession = True
+        for ll in speech_list:
+            speech_text += ll
+        return 'SpeechList', speech_text, True
+
 
 
 
