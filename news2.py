@@ -71,7 +71,7 @@ class Clova_News():
                     temp = pd.DataFrame([[ticker, title, link]], columns=['Ticker', 'Title', 'Link'], index=[date])
                     temps.append(temp)
             p += 1
-            time.sleep(random.randrange(0, 1))
+            time.sleep(random.randrange(float(5)/100, float(1)/10))
 
     def get_ticker(self, ticker_path):
         self.ticker_df = pd.read_csv(ticker_path, header=0, dtype=np.str)
