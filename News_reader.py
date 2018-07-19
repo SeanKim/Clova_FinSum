@@ -16,6 +16,7 @@ import re
 from collections import Counter
 from konlpy import jvm
 import math
+import pytz
 from data import to_mobile_page
 
 class Clova_News():
@@ -78,7 +79,7 @@ class Clova_News():
                         title.startswith('[마켓포인'):
                     continue
                 date = tr.find_element_by_class_name('date').text
-                if pd.Timestamp(date) <= (pd.Timestamp(datetime.date.today()) - pd.DateOffset(days=recent_days)):
+                if pd.Timestamp(date) <= (pd.Timestamp(datetime.datetime.utcnow() - pd.DateOffset(days=1, hours=-9))):
                     return pd.concat(temps) if len(temps) != 0 else None
                 link = tr.find_element_by_tag_name('a').get_attribute("href")
 
@@ -186,12 +187,14 @@ class Clova_News():
 
     def read_news2(self):
         from bs4 import BeautifulSoup
-        url = 'https://finance.naver.com/item/news_read.nhn?article_id=0003982197&office_id=015&code=000660&page=&sm=title_entity_id.basic'
-        soup = BeautifulSoup(requests.get(url).content, 'lxml')
+        soup = BeautifulSoup(requests.get(self.link).content, 'lxml')
         self.title = soup.find('strong', {'class':'c p15'}).text
         soup = soup.find('div', {'id':'news_read'})
         news_text = soup.text
-        exception = soup.find('strong').text
+        try:
+            exception = soup.find('strong').text
+        except:
+            exception = None
         for red in soup.findChildren():
             if not red.text == exception:
                 news_text = news_text.replace(red.text,'')
@@ -394,8 +397,8 @@ if __name__ == '__main__':
     news = Clova_News(tickers=['000111'])
     #news.summary_all(news.recent_news('000660'))
     summaries = pd.DataFrame(columns=['title', 'summary'])
-    links =news.recent_news('000660')
-    for i in range(10):
+    links =news.recent_news('000880')
+    for i in range(len(links)):
         news.link = links['Link'][i]
         news.read_news2()
         news.summarize()
