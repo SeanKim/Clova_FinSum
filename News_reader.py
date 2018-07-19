@@ -20,13 +20,10 @@ import math
 
 class Clova_News():
     def __init__(self, tickers=None):  # ticker_path에 Ticker라는 column이 있어야함
-<<<<<<< HEAD
-=======
         self.link = ''
         self.title = ''
         self.text = ''
         self.summary = ''
->>>>>>> deaa24a5ce1a7df35cc855521e524f8d4e88f884
         self.tickers = tickers
         self.dart_api = 'd74599ed29c73354a63fa01fabb53271a717545a'
         self.options = webdriver.ChromeOptions()
