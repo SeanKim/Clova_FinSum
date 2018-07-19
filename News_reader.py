@@ -18,10 +18,6 @@ from konlpy import jvm
 
 class Clova_News():
     def __init__(self, tickers=None):  # ticker_path에 Ticker라는 column이 있어야함
-        self.link = ''
-        self.title = ''
-        self.content = ''
-        self.summary = ''
         self.tickers = tickers
         self.dart_api = 'd74599ed29c73354a63fa01fabb53271a717545a'
         self.options = webdriver.ChromeOptions()
@@ -166,6 +162,7 @@ class Clova_News():
         xpath = self.driver.find_element_by_xpath('//*[@id="news_read"]')
         children = xpath.find_elements_by_xpath('.//child::*')
         self.content = xpath.text
+        self.summary = ''
         for obj in children:
             if obj.get_attribute('class') in ['link_news', 'end_btn _end_btn']:
                 self.content = self.content.replace(obj.text, "")
@@ -187,7 +184,7 @@ class Clova_News():
             return lambda value: re.split('|'.join([re.escape(delimiter) for delimiter in delimiters]), value)
 
         morphs = self.nlp.morphs(self.title)
-        print(len(morphs))
+        print(len(morpshs))
         sentences = split('. ', '? ', '! ', '\n', '.\n')(self.content)
         dic = {}
         sentence_keys = []
