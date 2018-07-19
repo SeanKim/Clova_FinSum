@@ -226,7 +226,7 @@ class Clova_News():
         else:
             return dict()
     
-    def sumarize2(self):
+    def summarize2(self):
         temp_summaries = []
         sentences = self.__split_sentences('. ', '? ', '! ', '\n', '.\n', ';', )(self.text)
         keys = self.__keywords()
