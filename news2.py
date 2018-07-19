@@ -9,12 +9,24 @@ import requests
 import numpy as np
 import json
 import datetime
+import collections
+from konlpy.tag import Twitter
+import jpype
+import re
+from konlpy import jvm
+
 
 class Clova_News():
-    def __init__(self, ticker_path=None):  # ticker_path에 Ticker라는 column이 있어야함
-        self.ticker_df = pd.DataFrame()
+    def __init__(self, tickers=None):  # ticker_path에 Ticker라는 column이 있어야함
+        self.link = ''
+        self.title = ''
+        self.content = ''
+        self.summary = ''
+        self.tickers = tickers
         self.dart_api = 'd74599ed29c73354a63fa01fabb53271a717545a'
         self.options = webdriver.ChromeOptions()
+        self.nlp = Twitter()
+
 
         self.options.add_argument('headless')
         self.options.add_argument('window-size=1920x1080')
@@ -38,9 +50,8 @@ class Clova_News():
                          'I002': '공정공시', 'I003': '시장조치/안내', 'I004': '지분공시', 'I005': '증권투자회사', 'I006': '채권공시', 'J001': '대규모내부거래관련',
                          'J002': '대규모내부거래관련(구)', 'J004': '기업집단현황공시', 'J005': '비상장회사중요사항공시', 'J006': '기타공정위공시',}
 
-
-        if ticker_path != None:
-            self.get_ticker(ticker_path)
+    def set_tickers(self, tickers):
+        self.tickers = tickers
 
     def recent_news(self, ticker, recent_days=1):
         temps = []
@@ -71,13 +82,10 @@ class Clova_News():
                     temp = pd.DataFrame([[ticker, title, link]], columns=['Ticker', 'Title', 'Link'], index=[date])
                     temps.append(temp)
             p += 1
-            time.sleep(random.randrange(0, 1))
-            
-    def get_ticker(self, ticker_path):
-        self.ticker_df = pd.read_csv(ticker_path, header=0, dtype=np.str)
+            time.sleep(random.randrange(float(5)/100, float(1)/10))
 
     def get_news(self, max_page=1):  # 인스턴스 데이터프레임에 Profile이라는 column을 만들고, 해당 칼럼에 Ticker에 해당하는 Profile을 저장함
-        for i, ticker in enumerate(self.ticker_df['Ticker'].values):
+        for i, ticker in enumerate(self.tickers):
             for p in range(1, max_page+1):
                 self.links = []
                 print(ticker, end=' ')
@@ -106,21 +114,19 @@ class Clova_News():
                             self.news_df = self.news_df.append(temp)
                             print("Date:", date, end='  ')
                             print('Title : {0}    Link : {1}'.format(title,  link))
-                print(str((p + max_page * i * 100) / (len(self.ticker_df['Ticker'].values) * max_page)) + "%", "done")
+                print(str((p + max_page * i * 100) / (len(self.tickers) * max_page)) + "%", "done")
 
 
                 print()
                 time.sleep(random.randrange(float(5) / 100, float(1) / 10))
 
     def get_filing(self):  # 인스턴스 데이터프레임에 Profile이라는 column을 만들고, 해당 칼럼에 Ticker에 해당하는 Profile을 저장함
-        self.ticker_df['Profile'] = np.nan
-        for i, ticker in enumerate(self.ticker_df['Ticker'].values):
+        for i, ticker in enumerate(self.tickers):
             print(ticker, end=' ')
             url = 'https://dart.fss.or.kr/html/search/SearchCompany_M2.html?textCrpNM=' + str(ticker)
             print(url)
             try:
-                if pd.isnull(self.ticker_df['Profile'][i]):
-                    self.driver.get(url)
+                self.driver.get(url)
             except:
                 pass
 
@@ -132,7 +138,7 @@ class Clova_News():
                     tds = tr.find_elements_by_tag_name('td')
                     print("Date:", tds[4].text, end='  ')
                     print('Title : {0}    Link : {1}'.format(tds[2].text,  tds[2].find_element_by_tag_name('a').get_attribute("href")))
-                print(str((i + 1) / len(self.ticker_df['Ticker'].values) * 100) + "%", "done")
+                print(str((i + 1) / len(self.tickers) * 100) + "%", "done")
 
             except:
                 print("error on :", ticker)
@@ -141,7 +147,7 @@ class Clova_News():
             time.sleep(random.randrange(float(5)/100, float(1)/10))
 
     def get_filing_api(self, start_date=(datetime.date.today() - datetime.timedelta(1)).strftime('%Y%m%d')):
-        for i, ticker in enumerate(self.ticker_df['Ticker'].values):
+        for i, ticker in enumerate(self.tickers):
             for p, key in enumerate(self.dart_dict):
                 url = "http://dart.fss.or.kr/api/search.json?auth=" + self.dart_api + "&crp_cd=" + ticker +'&start_dt=' + start_date + "&bsn_tp={}".format(key)
                 for tr in json.loads(requests.get(url).text)['list']:
@@ -149,18 +155,38 @@ class Clova_News():
                     self.dart_df = self.dart_df.append(temp)
                     print("Date:", tr['rcp_dt'], end='  ')
                     print('Title : {0}    Category : {1}'.format(tr['rpt_nm'], self.dart_dict[key]))
-                print(str((p + len(self.dart_dict) * i * 100) / (len(self.ticker_df['Ticker'].values) * len(self.dart_dict))) + "%",
+                print(str((p + len(self.dart_dict) * i * 100) / (len(self.tickers) * len(self.dart_dict))) + "%",
                     "done")
-    
-    def summary(self, num=3):
-        import collections
-        from konlpy.tag import Twitter
+
+    def read_news(self):
+        self.driver.get(self.link)
+        WebDriverWait(self.driver, 10).until(expected_conditions.element_to_be_clickable((By.XPATH, '// *[ @ id = "content"] / div[2] / table / tbody / tr[1] / th / strong')))
+        xpath = self.driver.find_element_by_xpath('// *[ @ id = "content"] / div[2] / table / tbody / tr[1] / th / strong')
+        self.title = xpath.text
+        xpath = self.driver.find_element_by_xpath('//*[@id="news_read"]')
+        children = xpath.find_elements_by_xpath('.//child::*')
+        self.content = xpath.text
+        for obj in children:
+            if obj.get_attribute('class') in ['link_news', 'end_btn _end_btn']:
+                self.content = self.content.replace(obj.text, "")
+
+    def summary_all(self, news_df):
+        summaries = pd.DataFrame(columns=['title', 'summary'])
+        for i, news in news_df.iterrows():
+            self.link = news['Link']
+            self.read_news()
+            self.summarize()
+            summaries = summaries.append(pd.DataFrame([[self.title, self.summary]], columns=['title', 'summary']))
+        return summaries
+
+    def summarize(self, num=3):
+        if not jpype.isJVMStarted():
+            jvm.init_jvm()
 
         def split(*delimiters):
             return lambda value: re.split('|'.join([re.escape(delimiter) for delimiter in delimiters]), value)
 
-        nlp = Twitter()
-        morphs = nlp.morphs(self.title)
+        morphs = self.nlp.morphs(self.title)
         sentences = split('. ', '? ', '! ', '\n', '.\n')(self.content)
         dic = {}
         sentence_keys = []
@@ -183,19 +209,16 @@ class Clova_News():
 
         sentence_keys = sorted(sentence_keys)
 
-        print("Title :", self.title)
+        #print("Title :", self.title)
         for key in sentence_keys:
-            print(sentences[key] + ".")
-
-    def export_to_csv(self, csv_path, encoding_type='utf-8'):  # 인스턴스 데이터프레임을 csv로 출력함
-        self.ticker_df.to_csv(csv_path, encoding=encoding_type, index=False)
+            self.summary += sentences[key] + ". "
 
     def __del__(self):
         self.driver.close()
 
 
 if __name__ == '__main__':
-    news = Clova_News(ticker_path = './ticker.csv')
+    news = Clova_News(tickers=['000111'])
     #news.get_news(max_page=10)
     #news.df.to_csv('./news.csv')
     #news.get_filing_api()

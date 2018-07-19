@@ -1,8 +1,8 @@
 ﻿from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
-from news2 import Clova_News
-from data import summary_all, load_data
+from data import load_data
 import pandas as pd
+from news2 import Clova_News
 
 class ClovaServer(BaseHTTPRequestHandler):
     def set_header(self):
@@ -77,15 +77,15 @@ class ClovaServer(BaseHTTPRequestHandler):
             symbol = None if 'symbol' not in locals() else symbol
             return self.no_symbol(symbol)
         news_list = chrome.recent_news(symbol)
-        summaries = summary_all(news_list)
+        summaries = chrome.summary_all(news_list)
         summaries['speech_text'] = summaries['title'] + '\n' + summaries['summary']
-        speech_list = [['뉴스를 요약해드릴게요', v['title'], v['summary'], '끝'] for i,v in summaries.iterrows()]
+        speech_list = [[v['title'], v['summary'], '다음 뉴스입니다.'] for i,v in summaries.iterrows()]
         speech_text = []
         # Speech List이므로 딕셔너리의 리스트를 할당
         # https://developers.naver.com/console/clova/guide/CEK/References/CEK_API.md#CustomExtSpeechInfoObject
         for ll in speech_list:
             speech_text += ll
-        return 'SpeechList', speech_text, True, None
+        return 'SpeechList', ['뉴스를 요약해 드릴게요'] + speech_text[:-1], True, None
 
 
 def run(server_class=HTTPServer, handler_class=ClovaServer, port=80):
