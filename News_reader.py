@@ -16,7 +16,9 @@ import re
 from collections import Counter
 from konlpy import jvm
 import math
+from retry import retry
 from data import to_mobile_page
+from xml import etree
 
 
 class Clova_News():
@@ -166,14 +168,17 @@ class Clova_News():
                     "done")
 
     def read_news(self):
+        #self.driver.execute_script("return document.readyState").equal('complete')
+        self.driver.get('about:blank')
         self.driver.get(self.link)
-        WebDriverWait(self.driver, 10).until(expected_conditions.element_to_be_clickable((By.XPATH, '//*[@id="content_body"]/div[3]/div/div[2]')))
+        WebDriverWait(self.driver, 10).until(expected_conditions.element_to_be_clickable((By.XPATH, '//*[@id="content_body"]/div[3]/div/div[2]/h2')))
         xpath = self.driver.find_element_by_xpath('//*[@id="content_body"]/div[3]/div/div[2]/h2')
         self.title = xpath.text
         xpath = self.driver.find_element_by_xpath('//*[@class="newsct_body"]')
-        children = xpath.find_elements_by_xpath('.//child::*')
         self.content = xpath.text
         self.summary = ''
+
+        children = xpath.find_elements_by_xpath('.//child::*')
         for obj in children:
             if obj.get_attribute('href') != None:
                 self.content = self.content.replace(obj.text, "")
@@ -181,7 +186,12 @@ class Clova_News():
                                               'media_end_linked_title_desc', 'media_end_linked_title', 'media_end_linke_item']:
                 self.content = self.content.replace(obj.text, "")
         self.content.replace('[]', '')
-        print(self.content)
+
+    def read_news2(self):
+        tree = html.fromstring(requests.get(self.link).content)
+        self.title = tree.xpath('//*[@id="content_body"]/div[3]/div/div[2]/h2/text()')
+        self.content = tree.xpath('//*[@class="newsct_body"]/text()')
+
 
     def summary_all(self, news_df):
         summaries = pd.DataFrame(columns=['title', 'summary'])
@@ -376,9 +386,11 @@ class Clova_News():
 
 if __name__ == '__main__':
     news = Clova_News(tickers=['000111'])
+    #news.summary_all(news.recent_news('000660'))
     summaries = pd.DataFrame(columns=['title', 'summary'])
-    for i in range(2):
-        news.link = news.recent_news('000660')['Link'][i]
+    links =news.recent_news('000660')
+    for i in range(10):
+        news.link = links['Link'][i]
         news.read_news()
         news.summarize()
         print(news.summary)
@@ -388,7 +400,6 @@ if __name__ == '__main__':
     #news.df.to_csv('./news.csv')
     #news.get_filing_api()
     #print(news.dart_df)
-
 
 
     #reuter.export_to_csv('out.csv', encoding_type='utf-8')
