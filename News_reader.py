@@ -22,12 +22,13 @@ class Clova_News():
     def __init__(self, tickers=None):  # ticker_path에 Ticker라는 column이 있어야함
         self.link = ''
         self.title = ''
-        self.text = ''
+        self.content = ''
         self.summary = ''
         self.tickers = tickers
         self.dart_api = 'd74599ed29c73354a63fa01fabb53271a717545a'
         self.options = webdriver.ChromeOptions()
         self.nlp = Twitter()
+        self.__load_stopwords()
 
 
         self.options.add_argument('headless')
@@ -84,7 +85,7 @@ class Clova_News():
                     temp = pd.DataFrame([[ticker, title, link]], columns=['Ticker', 'Title', 'Link'], index=[date])
                     temps.append(temp)
             p += 1
-            time.sleep(random.randrange(float(5)/100, float(1)/10))
+            time.sleep(random.uniform(0.05,0.1))
 
     def get_news(self, max_page=1):  # 인스턴스 데이터프레임에 Profile이라는 column을 만들고, 해당 칼럼에 Ticker에 해당하는 Profile을 저장함
         for i, ticker in enumerate(self.tickers):
@@ -120,7 +121,7 @@ class Clova_News():
 
 
                 print()
-                time.sleep(random.randrange(float(5) / 100, float(1) / 10))
+                time.sleep(random.uniform(0.05,0.1))
 
     def get_filing(self):  # 인스턴스 데이터프레임에 Profile이라는 column을 만들고, 해당 칼럼에 Ticker에 해당하는 Profile을 저장함
         for i, ticker in enumerate(self.tickers):
@@ -146,7 +147,8 @@ class Clova_News():
                 print("error on :", ticker)
 
             print()
-            time.sleep(random.randrange(float(5)/100, float(1)/10))
+            time.sleep(random.uniform(0.05,0.1))
+
 
     def get_filing_api(self, start_date=(datetime.date.today() - datetime.timedelta(1)).strftime('%Y%m%d')):
         for i, ticker in enumerate(self.tickers):
@@ -171,14 +173,14 @@ class Clova_News():
         self.summary = ''
         for obj in children:
             if obj.get_attribute('class') in ['link_news', 'end_btn _end_btn']:
-                self.text = self.text.replace(obj.text, "")
+                self.content = self.content.replace(obj.text, "")
 
     def summary_all(self, news_df):
         summaries = pd.DataFrame(columns=['title', 'summary'])
         for i, news in news_df.iterrows():
             self.link = news['Link']
             self.read_news()
-            self.summarize2()
+            self.summarize()
             summaries = summaries.append(pd.DataFrame([[self.title, self.summary]], columns=['title', 'summary']))
         return summaries
 
@@ -195,7 +197,7 @@ class Clova_News():
             return None
 
     def __load_stopwords(self):
-        with open('./stopwords.txt') as f:
+        with open('./stopwords.txt', encoding='utf-8') as f:
             self.stopwords = set()
             self.stopwords.update(set([w.strip() for w in f.readlines()]))
 
@@ -228,11 +230,12 @@ class Clova_News():
             return dict()
     
     def summarize2(self):
+        print(self.link)
         temp_summaries = []
-        sentences = self.__split_sentences('. ', '? ', '! ', '\n', '.\n', ';', )(self.text)
+        sentences = self.__split_sentences('. ', '? ', '! ', '\n', '.\n', ';', )(self.content)
         keys = self.__keywords()
         title_words = self.__split_words(self.title)
-        ranks = self.score(sentences, title_words, keys).most_common(5)
+        ranks = self.score(sentences, title_words, keys).most_common(3)
         for rank in ranks:
             temp_summaries.append(rank[0])
         temp_summaries.sort(key=lambda summary: summary[0])
@@ -240,10 +243,10 @@ class Clova_News():
 
     def title_score(self, title, sentence):
         if title:
-            title = [x for x in title if x not in stopwords]
+            title = [x for x in title if x not in self.stopwords]
             count = 0.0
             for word in sentence:
-                if (word not in stopwords and word in title):
+                if (word not in self.stopwords and word in title):
                     count += 1.0
             return count / max(len(title), 1)
         else:
@@ -277,7 +280,7 @@ class Clova_News():
             return 0
 
     def length_score(self, sentence_len):
-        return 1 - math.fabs(ideal - sentence_len) / ideal
+        return 1 - math.fabs(20 - sentence_len) / 20
 
     def sbs(self, words, keywords):
         score = 0.0
@@ -310,10 +313,10 @@ class Clova_News():
         return (1 / (k * (k + 1.0)) * summ)
 
     def score(self, sentences, title_words, keywords):
-        senSize = len(self.text)
+        senSize = len(self.content)
         ranks = Counter()
         for i, s in enumerate(sentences):
-            sentence = self.split_words(s)
+            sentence = self.__split_words(s)
             titleFeature = self.title_score(title_words, sentence)
             sentenceLength = self.length_score(len(sentence))
             sentencePosition = self.sentence_position(i + 1, senSize)
@@ -330,8 +333,9 @@ class Clova_News():
         if not jpype.isJVMStarted():
             jvm.init_jvm()
 
+        print(self.link)
         morphs = self.nlp.morphs(self.title)
-        sentences = self.__split_sentences('. ', '? ', '! ', '\n', '.\n', ';', )(self.text)
+        sentences = self.__split_sentences('. ', '? ', '! ', '\n', '.\n', ';', )(self.content)
 
         dic = {}
         sentence_keys = []
