@@ -78,7 +78,7 @@ class ClovaServer(BaseHTTPRequestHandler):
         news_list = chrome.recent_news(symbol)
         summaries = summary_all(news_list)
         summaries['speech_text'] = summaries['title'] + '\n' + summaries['summary']
-        speech_list = [[v['title'], v['summary'], '다음 뉴스입니다.'] for i,v in summaries.iterrows()]
+        speech_list = [['뉴스를 요약해드릴게요', v['title'], v['summary'], '끝'] for i,v in summaries.iterrows()]
         speech_text = []
         # Speech List이므로 딕셔너리의 리스트를 할당
         # https://developers.naver.com/console/clova/guide/CEK/References/CEK_API.md#CustomExtSpeechInfoObject

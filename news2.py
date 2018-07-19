@@ -71,8 +71,8 @@ class Clova_News():
                     temp = pd.DataFrame([[ticker, title, link]], columns=['Ticker', 'Title', 'Link'], index=[date])
                     temps.append(temp)
             p += 1
-            time.sleep(random.randrange(float(5)/100, float(1)/10))
-
+            time.sleep(random.randrange(0, 1))
+            
     def get_ticker(self, ticker_path):
         self.ticker_df = pd.read_csv(ticker_path, header=0, dtype=np.str)
 
@@ -151,6 +151,41 @@ class Clova_News():
                     print('Title : {0}    Category : {1}'.format(tr['rpt_nm'], self.dart_dict[key]))
                 print(str((p + len(self.dart_dict) * i * 100) / (len(self.ticker_df['Ticker'].values) * len(self.dart_dict))) + "%",
                     "done")
+    
+    def summary(self, num=3):
+        import collections
+        from konlpy.tag import Twitter
+
+        def split(*delimiters):
+            return lambda value: re.split('|'.join([re.escape(delimiter) for delimiter in delimiters]), value)
+
+        nlp = Twitter()
+        morphs = nlp.morphs(self.title)
+        sentences = split('. ', '? ', '! ', '\n', '.\n')(self.content)
+        dic = {}
+        sentence_keys = []
+
+        for i, sentence in enumerate(sentences):
+            score = 0
+            for morph in morphs:
+                if sentence.find(morph)>=0 and len(morph) > 1:
+                    score += len(morph)
+            dic[i] = score
+
+        dic = collections.OrderedDict(sorted(dic.items(), key=lambda t: t[1], reverse=True))
+
+        for key in dic.keys():
+            if num == 0:
+                break
+            else:
+                sentence_keys.append(key)
+                num -= 1
+
+        sentence_keys = sorted(sentence_keys)
+
+        print("Title :", self.title)
+        for key in sentence_keys:
+            print(sentences[key] + ".")
 
     def export_to_csv(self, csv_path, encoding_type='utf-8'):  # 인스턴스 데이터프레임을 csv로 출력함
         self.ticker_df.to_csv(csv_path, encoding=encoding_type, index=False)
