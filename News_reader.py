@@ -16,7 +16,6 @@ import re
 from collections import Counter
 from konlpy import jvm
 import math
-from retry import retry
 from data import to_mobile_page
 
 class Clova_News():
@@ -84,7 +83,7 @@ class Clova_News():
                 link = tr.find_element_by_tag_name('a').get_attribute("href")
 
                 if len(tr.find_elements_by_class_name('title')) > 0:
-                    temp = pd.DataFrame([[ticker, title, to_mobile_page(link)]], columns=['Ticker', 'Title', 'Link'], index=[date])
+                    temp = pd.DataFrame([[ticker, title, link]], columns=['Ticker', 'Title', 'Link'], index=[date])
                     temps.append(temp)
             p += 1
             time.sleep(random.uniform(0.05,0.1))
@@ -119,7 +118,7 @@ class Clova_News():
                             temp = pd.DataFrame([[ticker, title, link]], columns=['Ticker', 'Title', 'Link'], index=[date])
                             self.news_df = self.news_df.append(temp)
                             print("Date:", date, end='  ')
-                            print('Title : {0}    Link : {1}'.format(title,  to_mobile_page(link)))
+                            print('Title : {0}    Link : {1}'.format(title,  link))
                 print(str((p + max_page * i * 100) / (len(self.tickers) * max_page)) + "%", "done")
 
 
@@ -167,12 +166,12 @@ class Clova_News():
 
     def read_news(self):
         #self.driver.execute_script("return document.readyState").equal('complete')
-        self.driver.get('about:blank')
+        #self.driver.get('about:blank')
         self.driver.get(self.link)
-        WebDriverWait(self.driver, 10).until(expected_conditions.element_to_be_clickable((By.XPATH, '//*[@id="content_body"]/div[3]/div/div[2]/h2')))
-        xpath = self.driver.find_element_by_xpath('//*[@id="content_body"]/div[3]/div/div[2]/h2')
+        WebDriverWait(self.driver, 10).until(expected_conditions.element_to_be_clickable((By.XPATH, '//*[@id="content"]/div[2]/table/tbody/tr[1]/th/strong')))
+        xpath = self.driver.find_element_by_xpath('//*[@id="content"]/div[2]/table/tbody/tr[1]/th/strong')
         self.title = xpath.text
-        xpath = self.driver.find_element_by_xpath('//*[@class="newsct_body"]')
+        xpath = self.driver.find_element_by_xpath('//*[@id="news_read"]')
         self.content = xpath.text
         self.summary = ''
 
@@ -196,7 +195,7 @@ class Clova_News():
         for red in soup.findChildren():
             if not red.text == exception:
                 news_text = news_text.replace(red.text,'')
-        news_text.replace('[]','')
+        news_text = news_text.replace('[]','')
         self.content = news_text
         self.summary = ''
 
@@ -398,7 +397,7 @@ if __name__ == '__main__':
     links =news.recent_news('000660')
     for i in range(10):
         news.link = links['Link'][i]
-        news.read_news()
+        news.read_news2()
         news.summarize()
         print(news.summary)
         summaries = summaries.append(pd.DataFrame([[news.title, news.summary]], columns=['title', 'summary']))
