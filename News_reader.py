@@ -208,7 +208,7 @@ class Clova_News():
         for i, news in news_df.iterrows():
             self.link = news['Link']
             self.read_news()
-            self.summarize()
+            self.summarize2()
             summaries = summaries.append(pd.DataFrame([[self.title, self.summary]], columns=['title', 'summary']))
         return summaries
 
