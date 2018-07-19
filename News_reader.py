@@ -175,8 +175,13 @@ class Clova_News():
         self.content = xpath.text
         self.summary = ''
         for obj in children:
-            if obj.get_attribute('class') in ['link_news', 'end_btn _end_btn']:
+            if obj.get_attribute('href') != None:
                 self.content = self.content.replace(obj.text, "")
+            if obj.get_attribute('class') in ['paging_wrp', 'ends_btn', 'ct_box ad_cont_wrap', 'media_end_linked',
+                                              'media_end_linked_title_desc', 'media_end_linked_title', 'media_end_linke_item']:
+                self.content = self.content.replace(obj.text, "")
+        self.content.replace('[]'.'')
+        print(self.content)
 
     def summary_all(self, news_df):
         summaries = pd.DataFrame(columns=['title', 'summary'])
@@ -371,12 +376,14 @@ class Clova_News():
 
 if __name__ == '__main__':
     news = Clova_News(tickers=['000111'])
-    news.link =news.recent_news('000660')['Link'][0]
-    news.read_news()
-    news.summarize()
-    print(news.summary)
-
-
+    summaries = pd.DataFrame(columns=['title', 'summary'])
+    for i in range(2):
+        news.link = news.recent_news('000660')['Link'][i]
+        news.read_news()
+        news.summarize()
+        print(news.summary)
+        summaries = summaries.append(pd.DataFrame([[news.title, news.summary]], columns=['title', 'summary']))
+    print(summaries)
     #news.get_news(max_page=10)
     #news.df.to_csv('./news.csv')
     #news.get_filing_api()
