@@ -24,11 +24,11 @@ class ClovaServer(BaseHTTPRequestHandler):
 
     def do_POST(self):
         content_length = int(self.headers['Content-Length'])
+        self.set_header()
         post_data = self.rfile.read(content_length)
         self.body = json.loads(post_data.decode('utf-8'))
         # user_id로 저장된 정보를 불러옵니다.
         self.user_data = load_data(self.body['context']['System']['user']['userId'])
-        self.set_header()
         self.do_main()
 
     def set_response(self, speech_type, speech_body, shouldEndSession, sessionAttributes):
