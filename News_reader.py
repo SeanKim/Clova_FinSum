@@ -183,7 +183,7 @@ class Clova_News():
             self.summarize()
             summaries = summaries.append(pd.DataFrame([[self.title, self.summary]], columns=['title', 'summary']))
         return summaries
-    
+
     def summarize(self, num=3):
         if not jpype.isJVMStarted():
             jvm.init_jvm()
