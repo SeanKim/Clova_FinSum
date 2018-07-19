@@ -63,7 +63,7 @@ class Clova_News():
             url = 'https://finance.naver.com/item/news_news.nhn?code={}&page={}'.format(ticker,p)
             self.driver.get(url)
             WebDriverWait(self.driver, 10).until(expected_conditions.element_to_be_clickable(
-                (By.XPATH, '//*[@id="dummybodyid"]/div[1]/table[1]/tbody/tr[1]/td[1]/a')))
+                (By.XPATH, '//*[@id="dummybodyid"]/div[1]/table[1]/tbody/tr[1]')))
             trs = self.driver.find_elements_by_xpath("/html/body/div/table[1]/tbody[1]/*")
 
             for tr in trs:
@@ -98,7 +98,7 @@ class Clova_News():
                 self.driver.get(url)
 
                 WebDriverWait(self.driver, 10).until(expected_conditions.element_to_be_clickable(
-                    (By.XPATH, '//*[@id="dummybodyid"]/div[1]/table[1]/tbody/tr[1]/td[1]/a')))
+                    (By.XPATH, '//*[@id="dummybodyid"]/div[1]/table[1]/tbody/tr[1]')))
                 trs = self.driver.find_elements_by_xpath("/html/body/div/table[1]/tbody[1]/*")
 
                 for tr in trs:
