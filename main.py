@@ -3,6 +3,7 @@ import json
 from data import User
 import pandas as pd
 from News_reader import Clova_News
+import time
 
 class ClovaServer(BaseHTTPRequestHandler):
     def set_header(self):
@@ -30,6 +31,7 @@ class ClovaServer(BaseHTTPRequestHandler):
         # user_id로 저장된 정보를 불러옵니다.
         self.user = User(self.body['context']['System']['user']['userId'])
         self.do_main()
+        print("response done")
 
     def set_response(self, speech_type, speech_body, shouldEndSession, sessionAttributes):
         self.speech_type = speech_type
@@ -80,10 +82,11 @@ class ClovaServer(BaseHTTPRequestHandler):
         return 'SimpleSpeech', symbol + '가 관심종목에 추가되었습니다. 계속 추가를 원하시면 종목 이름을 말씀해 주세요.', False, {'name':'addFavorite'}
 
     def ing(self):
-        if self.body['session']['sessionAttributes'] == None:
+        try:
+            if self.body['session']['sessionAttributes'] == None:
+                pass
             #도움말 띄우기 미구현
-            pass
-        else:
+        except KeyError:
             self.set_response(*getattr(self, self.body['session']['sessionAttributes']['name'])())
 
 
