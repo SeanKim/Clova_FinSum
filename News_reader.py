@@ -30,7 +30,8 @@ class Clova_News():
         self.options = webdriver.ChromeOptions()
         self.nlp = Twitter()
         self.__load_stopwords()
-
+        if not jpype.isJVMStarted():
+            jvm.init_jvm()
 
         self.options.add_argument('headless')
         self.options.add_argument('window-size=1920x1080')
@@ -212,9 +213,6 @@ class Clova_News():
         return summaries
 
     def summarize(self, num=3):
-        if not jpype.isJVMStarted():
-            jvm.init_jvm()
-
         print(self.link)
         morphs = self.nlp.morphs(self.title)
         sentences = self.__split_sentences('. ', '? ', '! ', '\n', '.\n', ';', )(self.content)
@@ -398,10 +396,13 @@ if __name__ == '__main__':
     #news.summary_all(news.recent_news('000660'))
     summaries = pd.DataFrame(columns=['title', 'summary'])
     links =news.recent_news('000880')
+
     for i in range(len(links)):
         news.link = links['Link'][i]
         news.read_news2()
-        news.summarize()
+        a = time.time()
+        news.summarize2()
+        print(time.time() - a)
         print(news.summary)
         summaries = summaries.append(pd.DataFrame([[news.title, news.summary]], columns=['title', 'summary']))
     print(summaries)
