@@ -1,6 +1,6 @@
 ﻿from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
-from data import load_data
+from data import User
 import pandas as pd
 from News_reader import Clova_News
 
@@ -20,7 +20,7 @@ class ClovaServer(BaseHTTPRequestHandler):
         #   self.set_response('SimpleSpeech', '다시 한 번 말씀해 주세요', False, None)
         #   self.do_response()
 
-        del self.speech_body, self.speech_type, self.shouldEndSession, self.sessionAttributes
+        del self.speech_body, self.speech_type, self.shouldEndSession, self.sessionAttributes, self.user
 
     def do_POST(self):
         content_length = int(self.headers['Content-Length'])
@@ -28,7 +28,7 @@ class ClovaServer(BaseHTTPRequestHandler):
         post_data = self.rfile.read(content_length)
         self.body = json.loads(post_data.decode('utf-8'))
         # user_id로 저장된 정보를 불러옵니다.
-        self.user_data = load_data(self.body['context']['System']['user']['userId'])
+        self.user = User(self.body['context']['System']['user']['userId'])
         self.do_main()
 
     def set_response(self, speech_type, speech_body, shouldEndSession, sessionAttributes):
@@ -57,18 +57,37 @@ class ClovaServer(BaseHTTPRequestHandler):
 
         self.wfile.write(json.dumps(response_body, ensure_ascii=False).encode('utf-8'))
 
-    def no_symbol(self, symbol):
+    def no_symbol(self, symbol, sessionAttributes=None):
         if symbol == None:
-            return 'SimpleSpeech', '해당하는 종목이 없습니다. 코스피 혹은 코스닥시장에 상장 된 종목만 가능합니다. 다시 말씀해 주세요.', False, None
+            return 'SimpleSpeech', '해당하는 종목이 없습니다. 코스피 혹은 코스닥시장에 상장 된 종목만 가능합니다. 다시 말씀해 주세요.', False, sessionAttributes
         else:
             simmilars = []
             [simmilars.append(key) if symbol in key else None for key in symbol_dict.keys()]
             if len(simmilars) == 0:
-                return 'SimpleSpeech', '해당하는 종목이 없습니다. 코스피 혹은 코스닥시장에 상장 된 종목만 가능합니다. 다시 말씀해 주세요.', False, None
+                return 'SimpleSpeech', '해당하는 종목이 없습니다. 코스피 혹은 코스닥시장에 상장 된 종목만 가능합니다. 다시 말씀해 주세요.', False, sessionAttributes
             else:
-                return 'SimpleSpeech', symbol + '이 들어가는 종목은 ' +', '.join(simmilars) + '이 있습니다. 이 중 하나를 말씀해 주세요.', False, None
+                return 'SimpleSpeech', symbol + '이 들어가는 종목은 ' +', '.join(simmilars) + '이 있습니다. 이 중 하나를 말씀해 주세요.', False, sessionAttributes
 
-    def recentnews(self):
+    def addFavorite(self):
+        try:
+            symbol = self.body['request']['intent']['slots']['symbol']['value']
+            symbol_code = symbol_dict[symbol]
+        except (KeyError, TypeError) as e:
+            symbol = None if 'symbol' not in locals() else symbol
+            return self.no_symbol(symbol, sessionAttributes={'name':'addFavorite'})
+        self.user.data = self.user.data.append(pd.Series([symbol_code]))
+        self.user.save_data()
+        return 'SimpleSpeech', symbol + '가 관심종목에 추가되었습니다. 계속 추가를 원하시면 종목 이름을 말씀해 주세요.', False, {'name':'addFavorite'}
+
+    def ing(self):
+        if self.body['session']['sessionAttributes'] == None:
+            #도움말 띄우기 미구현
+            pass
+        else:
+            self.set_response(*getattr(self, self.body['session']['sessionAttributes']['name'])())
+
+
+    def recentNews(self):
         # 3문장으로 요약하도록 해 두었음, 결과가 적절하지 않을 시 수정 요망
         try:
             symbol = self.body['request']['intent']['slots']['symbol']['value']

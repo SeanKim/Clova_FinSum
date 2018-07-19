@@ -184,6 +184,51 @@ class Clova_News():
             summaries = summaries.append(pd.DataFrame([[self.title, self.summary]], columns=['title', 'summary']))
         return summaries
 
+    def summarize(self, num=3):
+        if not jpype.isJVMStarted():
+            jvm.init_jvm()
+
+        print(self.link)
+        morphs = self.nlp.morphs(self.title)
+        sentences = self.__split_sentences('. ', '? ', '! ', '\n', '.\n', ';', )(self.content)
+
+        dic = {}
+        sentence_keys = []
+
+        for i, sentence in enumerate(sentences):
+            score = 0
+            for morph in morphs:
+                if sentence.find(morph)>=0 and len(morph) > 1:
+                    score += len(morph)
+            dic[i] = score
+
+        dic = collections.OrderedDict(sorted(dic.items(), key=lambda t: t[1], reverse=True))
+
+        for key in dic.keys():
+            if num == 0:
+                break
+            else:
+                sentence_keys.append(key)
+                num -= 1
+
+        sentence_keys = sorted(sentence_keys)
+
+        #print("Title :", self.title)
+        for key in sentence_keys:
+            self.summary += sentences[key] + ". "
+
+    def summarize2(self):
+        print(self.link)
+        temp_summaries = []
+        sentences = self.__split_sentences('. ', '? ', '! ', '\n', '.\n', ';', )(self.content)
+        keys = self.__keywords()
+        title_words = self.__split_words(self.title)
+        ranks = self.__score(sentences, title_words, keys).most_common(3)
+        for rank in ranks:
+            temp_summaries.append(rank[0])
+        temp_summaries.sort(key=lambda summary: summary[0])
+        self.summary = '. '.join([summary[1] for summary in temp_summaries]) +'.'
+
     def __split_sentences(self, *delimiters):
         return lambda value: re.split('|'.join([re.escape(delimiter) for delimiter in delimiters]), value)
 
@@ -228,20 +273,8 @@ class Clova_News():
             return dict(keywords)
         else:
             return dict()
-    
-    def summarize2(self):
-        print(self.link)
-        temp_summaries = []
-        sentences = self.__split_sentences('. ', '? ', '! ', '\n', '.\n', ';', )(self.content)
-        keys = self.__keywords()
-        title_words = self.__split_words(self.title)
-        ranks = self.score(sentences, title_words, keys).most_common(3)
-        for rank in ranks:
-            temp_summaries.append(rank[0])
-        temp_summaries.sort(key=lambda summary: summary[0])
-        self.summary = '. '.join([summary[1] for summary in temp_summaries]) +'.'
 
-    def title_score(self, title, sentence):
+    def __title_score(self, title, sentence):
         if title:
             title = [x for x in title if x not in self.stopwords]
             count = 0.0
@@ -252,7 +285,7 @@ class Clova_News():
         else:
             return 0
 
-    def sentence_position(self, i, size):
+    def __sentence_position(self, i, size):
         normalized = i * 1.0 / size
         if (normalized > 1.0):
             return 0
@@ -279,10 +312,10 @@ class Clova_News():
         else:
             return 0
 
-    def length_score(self, sentence_len):
+    def __length_score(self, sentence_len):
         return 1 - math.fabs(20 - sentence_len) / 20
 
-    def sbs(self, words, keywords):
+    def __sbs(self, words, keywords):
         score = 0.0
         if (len(words) == 0):
             return 0
@@ -291,7 +324,7 @@ class Clova_News():
                 score += keywords[word]
         return (1.0 / math.fabs(len(words)) * score) / 10.0
 
-    def dbs(self, words, keywords):
+    def __dbs(self, words, keywords):
         if (len(words) == 0):
             return 0
         summ = 0
@@ -312,55 +345,22 @@ class Clova_News():
         k = len(set(keywords.keys()).intersection(set(words))) + 1
         return (1 / (k * (k + 1.0)) * summ)
 
-    def score(self, sentences, title_words, keywords):
+    def __score(self, sentences, title_words, keywords):
         senSize = len(self.content)
         ranks = Counter()
         for i, s in enumerate(sentences):
             sentence = self.__split_words(s)
-            titleFeature = self.title_score(title_words, sentence)
-            sentenceLength = self.length_score(len(sentence))
-            sentencePosition = self.sentence_position(i + 1, senSize)
-            sbsFeature = self.sbs(sentence, keywords)
-            dbsFeature = self.dbs(sentence, keywords)
+            titleFeature = self.__title_score(title_words, sentence)
+            sentenceLength = self.__length_score(len(sentence))
+            sentencePosition = self.__sentence_position(i + 1, senSize)
+            sbsFeature = self.__sbs(sentence, keywords)
+            dbsFeature = self.__dbs(sentence, keywords)
             frequency = (sbsFeature + dbsFeature) / 2.0 * 10.0
             # Weighted average of scores from four categories
             totalScore = (titleFeature * 1.5 + frequency * 2.0 +
                           sentenceLength * 1.0 + sentencePosition * 1.0) / 4.0
             ranks[(i, s)] = totalScore
         return ranks
-
-    def summarize(self, num=3):
-        if not jpype.isJVMStarted():
-            jvm.init_jvm()
-
-        print(self.link)
-        morphs = self.nlp.morphs(self.title)
-        sentences = self.__split_sentences('. ', '? ', '! ', '\n', '.\n', ';', )(self.content)
-
-        dic = {}
-        sentence_keys = []
-
-        for i, sentence in enumerate(sentences):
-            score = 0
-            for morph in morphs:
-                if sentence.find(morph)>=0 and len(morph) > 1:
-                    score += len(morph)
-            dic[i] = score
-
-        dic = collections.OrderedDict(sorted(dic.items(), key=lambda t: t[1], reverse=True))
-
-        for key in dic.keys():
-            if num == 0:
-                break
-            else:
-                sentence_keys.append(key)
-                num -= 1
-
-        sentence_keys = sorted(sentence_keys)
-
-        #print("Title :", self.title)
-        for key in sentence_keys:
-            self.summary += sentences[key] + ". "
 
     def __del__(self):
         self.driver.close()
