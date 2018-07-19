@@ -13,11 +13,20 @@ import collections
 from konlpy.tag import Twitter
 import jpype
 import re
+from collections import Counter
 from konlpy import jvm
+import math
 
 
 class Clova_News():
     def __init__(self, tickers=None):  # ticker_path에 Ticker라는 column이 있어야함
+<<<<<<< HEAD
+=======
+        self.link = ''
+        self.title = ''
+        self.text = ''
+        self.summary = ''
+>>>>>>> deaa24a5ce1a7df35cc855521e524f8d4e88f884
         self.tickers = tickers
         self.dart_api = 'd74599ed29c73354a63fa01fabb53271a717545a'
         self.options = webdriver.ChromeOptions()
@@ -165,27 +174,173 @@ class Clova_News():
         self.summary = ''
         for obj in children:
             if obj.get_attribute('class') in ['link_news', 'end_btn _end_btn']:
-                self.content = self.content.replace(obj.text, "")
+                self.text = self.text.replace(obj.text, "")
 
     def summary_all(self, news_df):
         summaries = pd.DataFrame(columns=['title', 'summary'])
         for i, news in news_df.iterrows():
             self.link = news['Link']
             self.read_news()
-            self.summarize()
+            self.summarize2()
             summaries = summaries.append(pd.DataFrame([[self.title, self.summary]], columns=['title', 'summary']))
         return summaries
+
+    def __split_sentences(self, *delimiters):
+        return lambda value: re.split('|'.join([re.escape(delimiter) for delimiter in delimiters]), value)
+
+    def __split_words(self, sentence):
+        """Split a string into array of words
+        """
+        try:
+            sentence = re.sub(r'[^\w ]', '', sentence)  # strip special chars
+            return [x.strip('.').lower() for x in sentence.split()]
+        except TypeError:
+            return None
+
+    def __load_stopwords(self):
+        with open('./stopwords.txt') as f:
+            self.stopwords = set()
+            self.stopwords.update(set([w.strip() for w in f.readlines()]))
+
+    def __keywords(self):
+        NUM_KEYWORDS = 10
+        text = self.__split_words(self.content)
+        # of words before removing blacklist words
+        if text:
+            num_words = len(text)
+            text = [x for x in text if x not in self.stopwords]
+            freq = {}
+            for word in text:
+                if word in freq:
+                    freq[word] += 1
+                else:
+                    freq[word] = 1
+
+            min_size = min(NUM_KEYWORDS, len(freq))
+            keywords = sorted(freq.items(),
+                              key=lambda x: (x[1], x[0]),
+                              reverse=True)
+            keywords = keywords[:min_size]
+            keywords = dict((x, y) for x, y in keywords)
+
+            for k in keywords:
+                articleScore = keywords[k] * 1.0 / max(num_words, 1)
+                keywords[k] = articleScore * 1.5 + 1
+            return dict(keywords)
+        else:
+            return dict()
+    
+    def summarize2(self):
+        temp_summaries = []
+        sentences = self.__split_sentences('. ', '? ', '! ', '\n', '.\n', ';', )(self.text)
+        keys = self.__keywords()
+        title_words = self.__split_words(self.title)
+        ranks = self.score(sentences, title_words, keys).most_common(5)
+        for rank in ranks:
+            temp_summaries.append(rank[0])
+        temp_summaries.sort(key=lambda summary: summary[0])
+        self.summary = '. '.join([summary[1] for summary in temp_summaries]) +'.'
+
+    def title_score(self, title, sentence):
+        if title:
+            title = [x for x in title if x not in stopwords]
+            count = 0.0
+            for word in sentence:
+                if (word not in stopwords and word in title):
+                    count += 1.0
+            return count / max(len(title), 1)
+        else:
+            return 0
+
+    def sentence_position(self, i, size):
+        normalized = i * 1.0 / size
+        if (normalized > 1.0):
+            return 0
+        elif (normalized > 0.9):
+            return 0.15
+        elif (normalized > 0.8):
+            return 0.04
+        elif (normalized > 0.7):
+            return 0.04
+        elif (normalized > 0.6):
+            return 0.06
+        elif (normalized > 0.5):
+            return 0.04
+        elif (normalized > 0.4):
+            return 0.05
+        elif (normalized > 0.3):
+            return 0.08
+        elif (normalized > 0.2):
+            return 0.14
+        elif (normalized > 0.1):
+            return 0.23
+        elif (normalized > 0):
+            return 0.17
+        else:
+            return 0
+
+    def length_score(self, sentence_len):
+        return 1 - math.fabs(ideal - sentence_len) / ideal
+
+    def sbs(self, words, keywords):
+        score = 0.0
+        if (len(words) == 0):
+            return 0
+        for word in words:
+            if word in keywords:
+                score += keywords[word]
+        return (1.0 / math.fabs(len(words)) * score) / 10.0
+
+    def dbs(self, words, keywords):
+        if (len(words) == 0):
+            return 0
+        summ = 0
+        first = []
+        second = []
+
+        for i, word in enumerate(words):
+            if word in keywords:
+                score = keywords[word]
+                if first == []:
+                    first = [i, score]
+                else:
+                    second = first
+                    first = [i, score]
+                    dif = first[0] - second[0]
+                    summ += (first[1] * second[1]) / (dif ** 2)
+        # Number of intersections
+        k = len(set(keywords.keys()).intersection(set(words))) + 1
+        return (1 / (k * (k + 1.0)) * summ)
+
+    def score(self, sentences, title_words, keywords):
+        senSize = len(self.text)
+        ranks = Counter()
+        for i, s in enumerate(sentences):
+            sentence = self.split_words(s)
+            titleFeature = self.title_score(title_words, sentence)
+            sentenceLength = self.length_score(len(sentence))
+            sentencePosition = self.sentence_position(i + 1, senSize)
+            sbsFeature = self.sbs(sentence, keywords)
+            dbsFeature = self.dbs(sentence, keywords)
+            frequency = (sbsFeature + dbsFeature) / 2.0 * 10.0
+            # Weighted average of scores from four categories
+            totalScore = (titleFeature * 1.5 + frequency * 2.0 +
+                          sentenceLength * 1.0 + sentencePosition * 1.0) / 4.0
+            ranks[(i, s)] = totalScore
+        return ranks
 
     def summarize(self, num=3):
         if not jpype.isJVMStarted():
             jvm.init_jvm()
 
-        def split(*delimiters):
-            return lambda value: re.split('|'.join([re.escape(delimiter) for delimiter in delimiters]), value)
-
         morphs = self.nlp.morphs(self.title)
+<<<<<<< HEAD
         print(len(morpshs))
         sentences = split('. ', '? ', '! ', '\n', '.\n')(self.content)
+=======
+        sentences = self.__split_sentences('. ', '? ', '! ', '\n', '.\n', ';', )(self.text)
+
+>>>>>>> deaa24a5ce1a7df35cc855521e524f8d4e88f884
         dic = {}
         sentence_keys = []
 
