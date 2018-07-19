@@ -331,13 +331,8 @@ class Clova_News():
             jvm.init_jvm()
 
         morphs = self.nlp.morphs(self.title)
-<<<<<<< HEAD
-        print(len(morpshs))
-        sentences = split('. ', '? ', '! ', '\n', '.\n')(self.content)
-=======
         sentences = self.__split_sentences('. ', '? ', '! ', '\n', '.\n', ';', )(self.text)
 
->>>>>>> deaa24a5ce1a7df35cc855521e524f8d4e88f884
         dic = {}
         sentence_keys = []
 
