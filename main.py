@@ -2,7 +2,7 @@
 import json
 from data import load_data
 import pandas as pd
-from news2 import Clova_News
+from News_reader import Clova_News
 
 class ClovaServer(BaseHTTPRequestHandler):
     def set_header(self):
@@ -78,7 +78,6 @@ class ClovaServer(BaseHTTPRequestHandler):
             return self.no_symbol(symbol)
         news_list = chrome.recent_news(symbol)
         summaries = chrome.summary_all(news_list)
-        summaries['speech_text'] = summaries['title'] + '\n' + summaries['summary']
         speech_list = [[v['title'], v['summary'], '다음 뉴스입니다.'] for i,v in summaries.iterrows()]
         speech_text = []
         # Speech List이므로 딕셔너리의 리스트를 할당
