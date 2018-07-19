@@ -235,7 +235,7 @@ class Clova_News():
         for rank in ranks:
             temp_summaries.append(rank[0])
         temp_summaries.sort(key=lambda summary: summary[0])
-        return '. '.join([summary[1] for summary in temp_summaries]) +'.'
+        self.summary = '. '.join([summary[1] for summary in temp_summaries]) +'.'
 
     def title_score(self, title, sentence):
         if title:
