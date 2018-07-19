@@ -18,8 +18,6 @@ from konlpy import jvm
 import math
 from retry import retry
 from data import to_mobile_page
-from xml import etree
-
 
 class Clova_News():
     def __init__(self, tickers=None):  # ticker_path에 Ticker라는 column이 있어야함
@@ -188,16 +186,25 @@ class Clova_News():
         self.content.replace('[]', '')
 
     def read_news2(self):
-        tree = html.fromstring(requests.get(self.link).content)
-        self.title = tree.xpath('//*[@id="content_body"]/div[3]/div/div[2]/h2/text()')
-        self.content = tree.xpath('//*[@class="newsct_body"]/text()')
-
+        from bs4 import BeautifulSoup
+        url = 'https://finance.naver.com/item/news_read.nhn?article_id=0003982197&office_id=015&code=000660&page=&sm=title_entity_id.basic'
+        soup = BeautifulSoup(requests.get(url).content, 'lxml')
+        self.title = soup.find('strong', {'class':'c p15'}).text
+        soup = soup.find('div', {'id':'news_read'})
+        news_text = soup.text
+        exception = soup.find('strong').text
+        for red in soup.findChildren():
+            if not red.text == exception:
+                news_text = news_text.replace(red.text,'')
+        news_text.replace('[]','')
+        self.content = news_text
+        self.summary = ''
 
     def summary_all(self, news_df):
         summaries = pd.DataFrame(columns=['title', 'summary'])
         for i, news in news_df.iterrows():
             self.link = news['Link']
-            self.read_news()
+            self.read_news2()
             self.summarize()
             summaries = summaries.append(pd.DataFrame([[self.title, self.summary]], columns=['title', 'summary']))
         return summaries
