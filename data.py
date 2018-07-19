@@ -10,4 +10,4 @@ class User():
             self.data = pd.Series(name='Symbol')
 
     def save_data(self):
-        self.data.to_csv('./user_data' + self.user_id)
+        self.data.to_csv('./user_data/' + self.user_id)
