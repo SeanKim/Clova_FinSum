@@ -17,9 +17,10 @@ class ClovaServer(BaseHTTPRequestHandler):
         try:
             self.set_response(*getattr(self, self.body['request']['intent']['name'])())
             self.do_response()
-        except AttributeError:
-           self.set_response('SimpleSpeech', '다시 한 번 말씀해 주세요', False, None)
-           self.do_response()
+        except AttributeError as e:
+            print(str(e))
+            self.set_response('SimpleSpeech', '다시 한 번 말씀해 주세요', False, None)
+            self.do_response()
 
         del self.speech_body, self.speech_type, self.shouldEndSession, self.sessionAttributes, self.user
 
@@ -99,6 +100,8 @@ class ClovaServer(BaseHTTPRequestHandler):
             symbol = None if 'symbol' not in locals() else symbol
             return self.no_symbol(symbol)
         news_list = chrome.recent_news(symbol)
+        if news_list == None:
+            return 'SimpleSpeech', '24시간 내에 관련 종목 뉴스가 없어요', True, None
         summaries = chrome.summary_all(news_list)
         speech_list = [[v['title'], v['summary'], '다음 뉴스입니다.'] for i,v in summaries.iterrows()]
         speech_text = []
