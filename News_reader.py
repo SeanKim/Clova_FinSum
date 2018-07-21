@@ -20,12 +20,13 @@ import pytz
 from data import to_mobile_page
 
 class Clova_News():
-    def __init__(self, tickers=None):  # ticker_path에 Ticker라는 column이 있어야함
+    def __init__(self, in_queue, out_queues):  # ticker_path에 Ticker라는 column이 있어야함
+        self.in_queue = in_queue
+        self.out_queues = out_queues
         self.link = ''
         self.title = ''
         self.content = ''
         self.summary = ''
-        self.tickers = tickers
         self.dart_api = 'd74599ed29c73354a63fa01fabb53271a717545a'
         self.options = webdriver.ChromeOptions()
         self.nlp = Twitter()
@@ -55,10 +56,17 @@ class Clova_News():
                          'I002': '공정공시', 'I003': '시장조치/안내', 'I004': '지분공시', 'I005': '증권투자회사', 'I006': '채권공시', 'J001': '대규모내부거래관련',
                          'J002': '대규모내부거래관련(구)', 'J004': '기업집단현황공시', 'J005': '비상장회사중요사항공시', 'J006': '기타공정위공시',}
 
+        while True:
+            task = self.in_queue.get()
+            func_name, args, self.ix = task[0], task[1], task[2]
+            getattr(self, func_name)(*args)
+
     def set_tickers(self, tickers):
         self.tickers = tickers
 
-    def recent_news(self, ticker, recent_days=1):
+    def recent_news(self, *args):
+        ticker = args[0]
+        recent_day = args[1]
         temps = []
         p = 1
         while True:
@@ -72,7 +80,8 @@ class Clova_News():
                 try:
                     title = tr.find_element_by_class_name('title').text
                 except:
-                    return None
+                    self.out_queues[self.ix].put(None)
+                    return
                 if tr.get_attribute('class').startswith('relation_lst') or \
                         title.startswith('[한경로보') or \
                         title.startswith('[스팟') or \
@@ -80,8 +89,9 @@ class Clova_News():
                         title.startswith('[마켓포인'):
                     continue
                 date = tr.find_element_by_class_name('date').text
-                if pd.Timestamp(date) <= (pd.Timestamp(datetime.datetime.utcnow() - pd.DateOffset(days=1, hours=-9))):
-                    return pd.concat(temps) if len(temps) != 0 else None
+                if pd.Timestamp(date) <= (pd.Timestamp(datetime.datetime.utcnow() - pd.DateOffset(days=recent_day, hours=-9))):
+                    self.out_queues[self.ix].put(pd.concat(temps) if len(temps) != 0 else None)
+                    return
                 link = tr.find_element_by_tag_name('a').get_attribute("href")
 
                 if len(tr.find_elements_by_class_name('title')) > 0:
@@ -203,14 +213,12 @@ class Clova_News():
         self.content = news_text
         self.summary = ''
 
-    def summary_all(self, news_df):
-        summaries = pd.DataFrame(columns=['title', 'summary'])
-        for i, news in news_df.iterrows():
-            self.link = news['Link']
-            self.read_news()
-            self.summarize2()
-            summaries = summaries.append(pd.DataFrame([[self.title, self.summary]], columns=['title', 'summary']))
-        return summaries
+    def do_summary(self, *args):
+        news = args[0]
+        self.link = news['Link']
+        self.read_news()
+        self.summarize2()
+        self.out_queues[self.ix].put(pd.DataFrame([[self.title, self.summary]], columns=['title', 'summary']))
 
     def summarize(self, num=3):
         print(self.link)

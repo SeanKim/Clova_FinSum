@@ -5,6 +5,8 @@ import pandas as pd
 from News_reader import Clova_News
 import time
 from socketserver import ThreadingMixIn
+from multiprocessing import Queue, Process, cpu_count, Array
+import threading
 
 class ClovaServer(BaseHTTPRequestHandler):
     def set_header(self):
@@ -13,10 +15,16 @@ class ClovaServer(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_main(self):
+        ix = None
+        for i, v in enumerate(flag):
+            if v == 0:
+                flag[i] = 1
+                ix = i
+                break
         # do_main 함수는 json request 내 name과 똑같은 이름의 내부 함수를 실행하므로
         # 원하는 동작을 일으킬 함수는 그에 해당하는 intent와 똑같은 이름으로 정해줘야 함
         try:
-            self.set_response(*getattr(self, self.body['request']['intent']['name'])())
+            self.set_response(*getattr(self, self.body['request']['intent']['name'])(ix))
             self.do_response()
         except AttributeError as e:
             try:
@@ -33,6 +41,8 @@ class ClovaServer(BaseHTTPRequestHandler):
 
         del self.speech_body, self.speech_type, self.shouldEndSession, self.sessionAttributes, self.user,\
             self.do_reprompt, self.reprompt_msg
+        flag[ix] = 0
+
 
     def do_POST(self):
         content_length = int(self.headers['Content-Length'])
@@ -99,7 +109,7 @@ class ClovaServer(BaseHTTPRequestHandler):
             else:
                 return 'SimpleSpeech', symbol + '이 들어가는 종목은 ' +', '.join(simmilars) + '이 있습니다. 이 중 하나를 말씀해 주세요.', False, sessionAttributes
 
-    def addFavorite(self):
+    def addFavorite(self, ix):
         try:
             symbol = self.body['request']['intent']['slots']['symbol']['value']
             symbol_code = symbol_dict[symbol]
@@ -110,16 +120,16 @@ class ClovaServer(BaseHTTPRequestHandler):
         self.user.save_data()
         return 'SimpleSpeech', symbol + '가 관심종목에 추가되었습니다. 계속 추가를 원하시면 종목 이름을 말씀해 주세요.', False, {'name':'addFavorite'}
 
-    def ing(self):
+    def ing(self, ix):
         try:
             if self.body['session']['sessionAttributes'] == None:
                 pass
             #도움말 띄우기 미구현
         except KeyError:
-            self.set_response(*getattr(self, self.body['session']['sessionAttributes']['name'])())
+            self.set_response(*getattr(self, self.body['session']['sessionAttributes']['name'])(ix))
 
 
-    def recentNews(self):
+    def recentNews(self, ix):
         # 3문장으로 요약하도록 해 두었음, 결과가 적절하지 않을 시 수정 요망
         try:
             symbol = self.body['request']['intent']['slots']['symbol']['value']
@@ -127,10 +137,15 @@ class ClovaServer(BaseHTTPRequestHandler):
         except (KeyError, TypeError) as e:
             symbol = None if 'symbol' not in locals() else symbol
             return self.no_symbol(symbol)
-        news_list = chrome.recent_news(symbol)
+        in_queue.put(['recent_news', [symbol,1], ix])
+        news_list = out_queues[ix].get()
         if type(news_list) != pd.DataFrame:
             return 'SimpleSpeech', '24시간 내에 관련 종목 뉴스가 없어요', True, None
-        summaries = chrome.summary_all(news_list)
+        for kk, news in news_list.iterrows():
+            in_queue.put(['do_summary', [news,], ix])
+        summaries = pd.DataFrame(columns=['title', 'summary'])
+        while len(summaries) < len(news_list):
+            summaries = summaries.append(out_queues[ix].get())
         speech_list = [[v['title'], v['summary'], '다음 뉴스입니다.'] for i,v in summaries.iterrows()]
         speech_text = []
         # Speech List이므로 딕셔너리의 리스트를 할당
@@ -140,14 +155,26 @@ class ClovaServer(BaseHTTPRequestHandler):
         return 'SpeechList', ['뉴스를 요약해 드릴게요'] + speech_text[:-1], True, None
 
 
-def run(handler_class=ClovaServer, port=80):\
-    #threading
-    class server_class(ThreadingMixIn, HTTPServer):
-        pass
-    global chrome
+def set_env():
+    global chromes, in_queue, flag, out_queues
+    chromes = []
+    in_queue = Queue()
+    out_queues = []
+    flag = Array('i', cpu_count())
+    for i in range(cpu_count()):
+        chromes.append(Process(target=Clova_News, args=(in_queue,out_queues)))
+        out_queues.append(Queue())
+    for c in chromes:
+        c.start()
     global symbol_dict
     symbol_dict = pd.read_csv('symbols.csv', index_col='Name', dtype=str).to_dict()['Code']
-    chrome = Clova_News()
+
+
+class server_class(ThreadingMixIn, HTTPServer):
+    pass
+
+def run(handler_class=ClovaServer, port=80):\
+    #threading
     server_address = ('', port)
     httpd = server_class(server_address, handler_class)
     # httpd.socket = ssl.wrap_socket(httpd.socket, server_side=True, certfile='certificate.pem',
@@ -159,5 +186,6 @@ def run(handler_class=ClovaServer, port=80):\
         pass
     httpd.server_close()
 
-
-run()
+if __name__ == '__main__':
+    set_env()
+    run()
