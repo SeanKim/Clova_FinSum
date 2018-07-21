@@ -19,14 +19,16 @@ class ClovaServer(BaseHTTPRequestHandler):
             self.set_response(*getattr(self, self.body['request']['intent']['name'])())
             self.do_response()
         except AttributeError as e:
-            print(str(e))
-            #try:
-            if self.body['request']['type'] == 'LaunchRequest':
-                self.set_response('SimpleSpeech', '무엇을 도와드릴까요?', False, None, True, '도움말을 듣고 싶으시면 \"도움말 들려줘라고 말해 주세요.\"')
+            try:
+                if self.body['request']['type'] == 'LaunchRequest':
+                    self.set_response(*('SimpleSpeech', '무엇을 도와드릴까요?', False, None, True, '도움말을 듣고 싶으시면 \"도움말 들려줘라고 말해 주세요.\"'))
+                    self.do_response()
+                else:
+                    self.set_response(*('SimpleSpeech', '다시 한 번 말씀해 주세요', False, None))
+                    self.do_response()
+            except:
+                self.set_response(*('SimpleSpeech', '다시 한 번 말씀해 주세요', False, None))
                 self.do_response()
-            #except:
-             #   self.set_response('SimpleSpeech', '다시 한 번 말씀해 주세요', False, None)
-              #  self.do_response()
 
 
         del self.speech_body, self.speech_type, self.shouldEndSession, self.sessionAttributes, self.user,\
@@ -121,7 +123,7 @@ class ClovaServer(BaseHTTPRequestHandler):
         # 3문장으로 요약하도록 해 두었음, 결과가 적절하지 않을 시 수정 요망
         try:
             symbol = self.body['request']['intent']['slots']['symbol']['value']
-            symbol = symbol_dict[symcbol]
+            symbol = symbol_dict[symbol]
         except (KeyError, TypeError) as e:
             symbol = None if 'symbol' not in locals() else symbol
             return self.no_symbol(symbol)
