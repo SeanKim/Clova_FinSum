@@ -4,6 +4,7 @@ from data import User
 import pandas as pd
 from News_reader import Clova_News
 import time
+from socketserver import ThreadingMixIn
 
 class ClovaServer(BaseHTTPRequestHandler):
     def set_header(self):
@@ -66,15 +67,15 @@ class ClovaServer(BaseHTTPRequestHandler):
 
         if self.do_reprompt:
             response_body['response']['reprompt'] = {
-                                                      "outputSpeech" : {
-                                                        "type" : "SimpleSpeech",
-                                                        "values" : {
-                                                          "type" : "PlainText",
-                                                          "lang" : "ko",
-                                                          "value" : self.reprompt_msg
-                                                        }
-                                                      }
+                                                  "outputSpeech" : {
+                                                    "type" : "SimpleSpeech",
+                                                    "values" : {
+                                                      "type" : "PlainText",
+                                                      "lang" : "ko",
+                                                      "value" : self.reprompt_msg
                                                     }
+                                                  }
+                                                }
 
         if self.speech_type == 'SimpleSpeech':
             response_body['response']['outputSpeech']['values'] = {"lang": 'ko', 'type': 'PlainText',
@@ -120,7 +121,7 @@ class ClovaServer(BaseHTTPRequestHandler):
         # 3문장으로 요약하도록 해 두었음, 결과가 적절하지 않을 시 수정 요망
         try:
             symbol = self.body['request']['intent']['slots']['symbol']['value']
-            symbol = symbol_dict[symbol]
+            symbol = symbol_dict[symcbol]
         except (KeyError, TypeError) as e:
             symbol = None if 'symbol' not in locals() else symbol
             return self.no_symbol(symbol)
@@ -137,7 +138,10 @@ class ClovaServer(BaseHTTPRequestHandler):
         return 'SpeechList', ['뉴스를 요약해 드릴게요'] + speech_text[:-1], True, None
 
 
-def run(server_class=HTTPServer, handler_class=ClovaServer, port=80):
+def run(handler_class=ClovaServer, port=80):\
+    #threading
+    class server_class(ThreadingMixIn, HTTPServer):
+        pass
     global chrome
     global symbol_dict
     symbol_dict = pd.read_csv('symbols.csv', index_col='Name', dtype=str).to_dict()['Code']
