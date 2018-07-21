@@ -19,10 +19,17 @@ class ClovaServer(BaseHTTPRequestHandler):
             self.do_response()
         except AttributeError as e:
             print(str(e))
-            self.set_response('SimpleSpeech', '다시 한 번 말씀해 주세요', False, None)
-            self.do_response()
+            #try:
+            if self.body['request']['type'] == 'LaunchRequest':
+                self.set_response('SimpleSpeech', '무엇을 도와드릴까요?', False, None, True, '도움말을 듣고 싶으시면 \"도움말 들려줘라고 말해 주세요.\"')
+                self.do_response()
+            #except:
+             #   self.set_response('SimpleSpeech', '다시 한 번 말씀해 주세요', False, None)
+              #  self.do_response()
 
-        del self.speech_body, self.speech_type, self.shouldEndSession, self.sessionAttributes, self.user
+
+        del self.speech_body, self.speech_type, self.shouldEndSession, self.sessionAttributes, self.user,\
+            self.do_reprompt, self.reprompt_msg
 
     def do_POST(self):
         content_length = int(self.headers['Content-Length'])
@@ -34,11 +41,17 @@ class ClovaServer(BaseHTTPRequestHandler):
         self.do_main()
         print("response done")
 
-    def set_response(self, speech_type, speech_body, shouldEndSession, sessionAttributes):
-        self.speech_type = speech_type
-        self.speech_body = speech_body
-        self.shouldEndSession = shouldEndSession
-        self.sessionAttributes = sessionAttributes
+    def set_response(self, *args):
+        base_value = ['SimpleSpeech', '', True, None, False, '']
+        args =list(args)
+        base_ix = (len(base_value)-len(args))
+        args = args + base_value[-base_ix:] if base_ix != 0 else args
+        self.speech_type = args[0]
+        self.speech_body = args[1]
+        self.shouldEndSession = args[2]
+        self.sessionAttributes = args[3]
+        self.do_reprompt = args[4]
+        self.reprompt_msg = args[5]
 
     def do_response(self):
         response_body = {'version': "", "sessionAttributes": self.sessionAttributes,
@@ -50,6 +63,18 @@ class ClovaServer(BaseHTTPRequestHandler):
                                        None},
                               'directives': None,
                               'shouldEndSession': self.shouldEndSession}}
+
+        if self.do_reprompt:
+            response_body['response']['reprompt'] = {
+                                                      "outputSpeech" : {
+                                                        "type" : "SimpleSpeech",
+                                                        "values" : {
+                                                          "type" : "PlainText",
+                                                          "lang" : "ko",
+                                                          "value" : self.reprompt_msg
+                                                        }
+                                                      }
+                                                    }
 
         if self.speech_type == 'SimpleSpeech':
             response_body['response']['outputSpeech']['values'] = {"lang": 'ko', 'type': 'PlainText',
@@ -100,7 +125,7 @@ class ClovaServer(BaseHTTPRequestHandler):
             symbol = None if 'symbol' not in locals() else symbol
             return self.no_symbol(symbol)
         news_list = chrome.recent_news(symbol)
-        if news_list == None:
+        if type(news_list) != pd.DataFrame:
             return 'SimpleSpeech', '24시간 내에 관련 종목 뉴스가 없어요', True, None
         summaries = chrome.summary_all(news_list)
         speech_list = [[v['title'], v['summary'], '다음 뉴스입니다.'] for i,v in summaries.iterrows()]
