@@ -23,7 +23,7 @@ class ClovaServer(BaseHTTPRequestHandler):
         try:
             self.set_response(*getattr(self, self.body['request']['intent']['name'])())
             self.do_response()
-        except AttributeError as e:
+        except (AttributeError, TypeError) as e:
             try:
                 if self.body['request']['type'] == 'LaunchRequest':
                     self.set_response(
@@ -131,6 +131,7 @@ class ClovaServer(BaseHTTPRequestHandler):
                 pass
             # 도움말 띄우기 미구현
         except KeyError:
+            # durltj dpfjskaus eocjgoidehla
             self.set_response(*getattr(self, self.body['session']['sessionAttributes']['name'])())
 
     def recentNews(self):

@@ -8,7 +8,7 @@ class User():
     def __init__(self, user_id):
         self.user_id = user_id
         if os.path.exists('./user_data/' + user_id):
-            self.data = pd.Series.read_csv('./user_data/' + user_id)
+            self.data = pd.Series.from_csv('./user_data/' + user_id)
         else:
             self.data = pd.Series(name='Symbol')
 
