@@ -166,7 +166,7 @@ def set_env(n_processes=cpu_count()):
     flags = Array('i', n_processes)
     print('{}개의 셀레니움을 시작 중입니다.'.format(n_processes))
     chromes = [Process(target=Clova_News, args=(in_queue, out_queues, i)) for i in range(n_processes)]
-    map(lambda x: x.start(), chromes)
+    [c.start() for c in chromes]
     symbol_dict = pd.read_csv('symbols.csv', index_col='Name', dtype=str).to_dict()['Code']
 
 
