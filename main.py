@@ -1,12 +1,13 @@
-﻿from http.server import BaseHTTPRequestHandler, HTTPServer
-import json
-from data import User
-import pandas as pd
-from News_reader import Clova_News
-import time
-from socketserver import ThreadingMixIn
+﻿import json
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from multiprocessing import Queue, Process, cpu_count, Array
-import threading
+from socketserver import ThreadingMixIn
+
+import pandas as pd
+
+from News_reader import Clova_News
+from data import User
+
 
 class ClovaServer(BaseHTTPRequestHandler):
     def set_header(self):
@@ -24,7 +25,8 @@ class ClovaServer(BaseHTTPRequestHandler):
         except AttributeError as e:
             try:
                 if self.body['request']['type'] == 'LaunchRequest':
-                    self.set_response(*('SimpleSpeech', '무엇을 도와드릴까요?', False, None, True, '도움말을 듣고 싶으시면 \"도움말 들려줘라고 말해 주세요.\"'))
+                    self.set_response(
+                        *('SimpleSpeech', '무엇을 도와드릴까요?', False, None, True, '도움말을 듣고 싶으시면 \"도움말 들려줘라고 말해 주세요.\"'))
                     self.do_response()
                 else:
                     self.set_response(*('SimpleSpeech', '다시 한 번 말씀해 주세요', False, None))
@@ -33,11 +35,9 @@ class ClovaServer(BaseHTTPRequestHandler):
                 self.set_response(*('SimpleSpeech', '다시 한 번 말씀해 주세요', False, None))
                 self.do_response()
 
-
-        del self.speech_body, self.speech_type, self.shouldEndSession, self.sessionAttributes, self.user,\
+        del self.speech_body, self.speech_type, self.shouldEndSession, self.sessionAttributes, self.user, \
             self.do_reprompt, self.reprompt_msg
         flags[self.ix] = 0
-
 
     def do_POST(self):
         content_length = int(self.headers['Content-Length'])
@@ -49,8 +49,8 @@ class ClovaServer(BaseHTTPRequestHandler):
 
     def set_response(self, *args):
         base_value = ['SimpleSpeech', '', True, None, False, '']
-        args =list(args)
-        base_ix = (len(base_value)-len(args))
+        args = list(args)
+        base_ix = (len(base_value) - len(args))
         args = args + base_value[-base_ix:] if base_ix != 0 else args
         self.speech_type = args[0]
         self.speech_body = args[1]
@@ -72,22 +72,22 @@ class ClovaServer(BaseHTTPRequestHandler):
 
         if self.do_reprompt:
             response_body['response']['reprompt'] = {
-                                                  "outputSpeech" : {
-                                                    "type" : "SimpleSpeech",
-                                                    "values" : {
-                                                      "type" : "PlainText",
-                                                      "lang" : "ko",
-                                                      "value" : self.reprompt_msg
-                                                    }
-                                                  }
-                                                }
+                "outputSpeech": {
+                    "type": "SimpleSpeech",
+                    "values": {
+                        "type": "PlainText",
+                        "lang": "ko",
+                        "value": self.reprompt_msg
+                    }
+                }
+            }
 
         if self.speech_type == 'SimpleSpeech':
             response_body['response']['outputSpeech']['values'] = {"lang": 'ko', 'type': 'PlainText',
-                                                               'value': self.speech_body}
+                                                                   'value': self.speech_body}
         elif self.speech_type == 'SpeechList':
             response_body['response']['outputSpeech']['values'] = \
-                [{'type': 'PlainText', 'lang':'ko', 'value':v} for v in self.speech_body]
+                [{'type': 'PlainText', 'lang': 'ko', 'value': v} for v in self.speech_body]
 
         self.wfile.write(json.dumps(response_body, ensure_ascii=False).encode('utf-8'))
 
@@ -100,7 +100,6 @@ class ClovaServer(BaseHTTPRequestHandler):
                 break
         return ix
 
-
     def no_symbol(self, symbol, sessionAttributes=None):
         if symbol == None:
             return 'SimpleSpeech', '해당하는 종목이 없습니다. 코스피 혹은 코스닥시장에 상장 된 종목만 가능합니다. 다시 말씀해 주세요.', False, sessionAttributes
@@ -110,7 +109,8 @@ class ClovaServer(BaseHTTPRequestHandler):
             if len(simmilars) == 0:
                 return 'SimpleSpeech', '해당하는 종목이 없습니다. 코스피 혹은 코스닥시장에 상장 된 종목만 가능합니다. 다시 말씀해 주세요.', False, sessionAttributes
             else:
-                return 'SimpleSpeech', symbol + '이 들어가는 종목은 ' +', '.join(simmilars) + '이 있습니다. 이 중 하나를 말씀해 주세요.', False, sessionAttributes
+                return 'SimpleSpeech', symbol + '이 들어가는 종목은 ' + ', '.join(
+                    simmilars) + '이 있습니다. 이 중 하나를 말씀해 주세요.', False, sessionAttributes
 
     def addFavorite(self):
         self.user = User(self.body['context']['System']['user']['userId'])
@@ -119,19 +119,18 @@ class ClovaServer(BaseHTTPRequestHandler):
             symbol_code = symbol_dict[symbol]
         except (KeyError, TypeError) as e:
             symbol = None if 'symbol' not in locals() else symbol
-            return self.no_symbol(symbol, sessionAttributes={'name':'addFavorite'})
+            return self.no_symbol(symbol, sessionAttributes={'name': 'addFavorite'})
         self.user.data = self.user.data.append(pd.Series([symbol_code]))
         self.user.save_data()
-        return 'SimpleSpeech', symbol + '가 관심종목에 추가되었습니다. 계속 추가를 원하시면 종목 이름을 말씀해 주세요.', False, {'name':'addFavorite'}
+        return 'SimpleSpeech', symbol + '가 관심종목에 추가되었습니다. 계속 추가를 원하시면 종목 이름을 말씀해 주세요.', False, {'name': 'addFavorite'}
 
     def ing(self):
         try:
             if self.body['session']['sessionAttributes'] == None:
                 pass
-            #도움말 띄우기 미구현
+            # 도움말 띄우기 미구현
         except KeyError:
             self.set_response(*getattr(self, self.body['session']['sessionAttributes']['name'])())
-
 
     def recentNews(self):
         # 3문장으로 요약하도록 해 두었음, 결과가 적절하지 않을 시 수정 요망
@@ -141,16 +140,16 @@ class ClovaServer(BaseHTTPRequestHandler):
         except (KeyError, TypeError) as e:
             symbol = None if 'symbol' not in locals() else symbol
             return self.no_symbol(symbol)
-        in_queue.put(['recent_news', [symbol,1], self.ix])
+        in_queue.put(['recent_news', [symbol, 1], self.ix])
         news_list = out_queues[self.ix].get()
         if type(news_list) != pd.DataFrame:
             return 'SimpleSpeech', '24시간 내에 관련 종목 뉴스가 없어요', True, None
         for kk, news in news_list.iterrows():
-            in_queue.put(['do_summary', [news,], self.ix])
+            in_queue.put(['do_summary', [news, ], self.ix])
         summaries = pd.DataFrame(columns=['title', 'summary'])
         while len(summaries) < len(news_list):
             summaries = summaries.append(out_queues[self.ix].get())
-        speech_list = [[v['title'], v['summary'], '다음 뉴스입니다.'] for i,v in summaries.iterrows()]
+        speech_list = [[v['title'], v['summary'], '다음 뉴스입니다.'] for i, v in summaries.iterrows()]
         speech_text = []
         # Speech List이므로 딕셔너리의 리스트를 할당
         # https://developers.naver.com/console/clova/guide/CEK/References/CEK_API.md#CustomExtSpeechInfoObject
@@ -172,8 +171,9 @@ def set_env():
 class server_class(ThreadingMixIn, HTTPServer):
     pass
 
-def run(handler_class=ClovaServer, port=80):\
-    #threading
+
+def run(handler_class=ClovaServer, port=80): \
+        # threading
     server_address = ('', port)
     httpd = server_class(server_address, handler_class)
     # httpd.socket = ssl.wrap_socket(httpd.socket, server_side=True, certfile='certificate.pem',
@@ -184,6 +184,7 @@ def run(handler_class=ClovaServer, port=80):\
     except KeyboardInterrupt:
         pass
     httpd.server_close()
+
 
 if __name__ == '__main__':
     set_env()
