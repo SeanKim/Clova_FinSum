@@ -217,7 +217,7 @@ class Clova_News():
         news = args[0]
         self.link = news['Link']
         self.read_news()
-        self.summarize2()
+        self.summarize()
         self.out_queues[self.ix].put(pd.DataFrame([[self.title, self.summary]], columns=['title', 'summary']))
 
     def summarize(self, num=3):
@@ -409,7 +409,7 @@ if __name__ == '__main__':
         news.link = links['Link'][i]
         news.read_news2()
         a = time.time()
-        news.summarize2()
+        news.summarize()
         print(time.time() - a)
         print(news.summary)
         summaries = summaries.append(pd.DataFrame([[news.title, news.summary]], columns=['title', 'summary']))
