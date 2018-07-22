@@ -16,10 +16,11 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.wait import WebDriverWait
+from bs4 import BeautifulSoup
 
 
 class Clova_News():
-    def __init__(self, in_queue, out_queues):  # ticker_path에 Ticker라는 column이 있어야함
+    def __init__(self, in_queue, out_queues,i):  # ticker_path에 Ticker라는 column이 있어야함
         self.in_queue = in_queue
         self.out_queues = out_queues
         self.link = ''
@@ -59,6 +60,7 @@ class Clova_News():
                           'I002': '공정공시', 'I003': '시장조치/안내', 'I004': '지분공시', 'I005': '증권투자회사', 'I006': '채권공시',
                           'J001': '대규모내부거래관련',
                           'J002': '대규모내부거래관련(구)', 'J004': '기업집단현황공시', 'J005': '비상장회사중요사항공시', 'J006': '기타공정위공시', }
+        print('{}번째 프로세스 구동 완료'.format(i))
 
         while True:
             task = self.in_queue.get()
@@ -208,7 +210,6 @@ class Clova_News():
         self.content.replace('[]', '')
 
     def read_news2(self):
-        from bs4 import BeautifulSoup
         soup = BeautifulSoup(requests.get(self.link).content, 'lxml')
         self.title = soup.find('strong', {'class': 'c p15'}).text
         soup = soup.find('div', {'id': 'news_read'})
