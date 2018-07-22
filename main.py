@@ -16,6 +16,7 @@ class ClovaServer(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_main(self):
+        self.user = None
         self.ix = self.reserving_queue()
         # do_main 함수는 json request 내 name과 똑같은 이름의 내부 함수를 실행하므로
         # 원하는 동작을 일으킬 함수는 그에 해당하는 intent와 똑같은 이름으로 정해줘야 함
@@ -35,7 +36,7 @@ class ClovaServer(BaseHTTPRequestHandler):
                 self.set_response(*('SimpleSpeech', '다시 한 번 말씀해 주세요', False, None))
                 self.do_response()
 
-        del self.speech_body, self.speech_type, self.shouldEndSession, self.sessionAttributes, self.user, \
+        del self.speech_body, self.speech_type, self.shouldEndSession, self.sessionAttributes, \
             self.do_reprompt, self.reprompt_msg
         flags[self.ix] = 0
 
