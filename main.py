@@ -15,16 +15,11 @@ class ClovaServer(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_main(self):
-        ix = None
-        for i, v in enumerate(flag):
-            if v == 0:
-                flag[i] = 1
-                ix = i
-                break
+        self.ix = self.reserving_queue()
         # do_main 함수는 json request 내 name과 똑같은 이름의 내부 함수를 실행하므로
         # 원하는 동작을 일으킬 함수는 그에 해당하는 intent와 똑같은 이름으로 정해줘야 함
         try:
-            self.set_response(*getattr(self, self.body['request']['intent']['name'])(ix))
+            self.set_response(*getattr(self, self.body['request']['intent']['name'])())
             self.do_response()
         except AttributeError as e:
             try:
@@ -41,7 +36,7 @@ class ClovaServer(BaseHTTPRequestHandler):
 
         del self.speech_body, self.speech_type, self.shouldEndSession, self.sessionAttributes, self.user,\
             self.do_reprompt, self.reprompt_msg
-        flag[ix] = 0
+        flags[self.ix] = 0
 
 
     def do_POST(self):
@@ -49,8 +44,6 @@ class ClovaServer(BaseHTTPRequestHandler):
         self.set_header()
         post_data = self.rfile.read(content_length)
         self.body = json.loads(post_data.decode('utf-8'))
-        # user_id로 저장된 정보를 불러옵니다.
-        self.user = User(self.body['context']['System']['user']['userId'])
         self.do_main()
         print("response done")
 
@@ -98,6 +91,16 @@ class ClovaServer(BaseHTTPRequestHandler):
 
         self.wfile.write(json.dumps(response_body, ensure_ascii=False).encode('utf-8'))
 
+    def reserving_queue(self):
+        ix = None
+        for i, v in enumerate(flags):
+            if v == 0:
+                flags[i] = 1
+                ix = i
+                break
+        return ix
+
+
     def no_symbol(self, symbol, sessionAttributes=None):
         if symbol == None:
             return 'SimpleSpeech', '해당하는 종목이 없습니다. 코스피 혹은 코스닥시장에 상장 된 종목만 가능합니다. 다시 말씀해 주세요.', False, sessionAttributes
@@ -109,7 +112,8 @@ class ClovaServer(BaseHTTPRequestHandler):
             else:
                 return 'SimpleSpeech', symbol + '이 들어가는 종목은 ' +', '.join(simmilars) + '이 있습니다. 이 중 하나를 말씀해 주세요.', False, sessionAttributes
 
-    def addFavorite(self, ix):
+    def addFavorite(self):
+        self.user = User(self.body['context']['System']['user']['userId'])
         try:
             symbol = self.body['request']['intent']['slots']['symbol']['value']
             symbol_code = symbol_dict[symbol]
@@ -120,16 +124,16 @@ class ClovaServer(BaseHTTPRequestHandler):
         self.user.save_data()
         return 'SimpleSpeech', symbol + '가 관심종목에 추가되었습니다. 계속 추가를 원하시면 종목 이름을 말씀해 주세요.', False, {'name':'addFavorite'}
 
-    def ing(self, ix):
+    def ing(self):
         try:
             if self.body['session']['sessionAttributes'] == None:
                 pass
             #도움말 띄우기 미구현
         except KeyError:
-            self.set_response(*getattr(self, self.body['session']['sessionAttributes']['name'])(ix))
+            self.set_response(*getattr(self, self.body['session']['sessionAttributes']['name'])())
 
 
-    def recentNews(self, ix):
+    def recentNews(self):
         # 3문장으로 요약하도록 해 두었음, 결과가 적절하지 않을 시 수정 요망
         try:
             symbol = self.body['request']['intent']['slots']['symbol']['value']
@@ -137,15 +141,15 @@ class ClovaServer(BaseHTTPRequestHandler):
         except (KeyError, TypeError) as e:
             symbol = None if 'symbol' not in locals() else symbol
             return self.no_symbol(symbol)
-        in_queue.put(['recent_news', [symbol,1], ix])
-        news_list = out_queues[ix].get()
+        in_queue.put(['recent_news', [symbol,1], self.ix])
+        news_list = out_queues[self.ix].get()
         if type(news_list) != pd.DataFrame:
             return 'SimpleSpeech', '24시간 내에 관련 종목 뉴스가 없어요', True, None
         for kk, news in news_list.iterrows():
-            in_queue.put(['do_summary', [news,], ix])
+            in_queue.put(['do_summary', [news,], self.ix])
         summaries = pd.DataFrame(columns=['title', 'summary'])
         while len(summaries) < len(news_list):
-            summaries = summaries.append(out_queues[ix].get())
+            summaries = summaries.append(out_queues[self.ix].get())
         speech_list = [[v['title'], v['summary'], '다음 뉴스입니다.'] for i,v in summaries.iterrows()]
         speech_text = []
         # Speech List이므로 딕셔너리의 리스트를 할당
@@ -156,17 +160,12 @@ class ClovaServer(BaseHTTPRequestHandler):
 
 
 def set_env():
-    global chromes, in_queue, flag, out_queues
-    chromes = []
+    global in_queue, out_queues, flags, chromes, symbol_dict
     in_queue = Queue()
-    out_queues = []
-    flag = Array('i', cpu_count())
-    for i in range(cpu_count()):
-        chromes.append(Process(target=Clova_News, args=(in_queue,out_queues)))
-        out_queues.append(Queue())
-    for c in chromes:
-        c.start()
-    global symbol_dict
+    out_queues = [Queue() for i in range(cpu_count())]
+    flags = Array('i', cpu_count())
+    chromes = [Process(target=Clova_News, args=(in_queue, out_queues)) for i in range(cpu_count())]
+    map(lambda x: x.start(), chromes)
     symbol_dict = pd.read_csv('symbols.csv', index_col='Name', dtype=str).to_dict()['Code']
 
 
