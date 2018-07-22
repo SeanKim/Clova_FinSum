@@ -159,12 +159,12 @@ class ClovaServer(BaseHTTPRequestHandler):
         return 'SpeechList', ['뉴스를 요약해 드릴게요'] + speech_text[:-1], True, None
 
 
-def set_env():
+def set_env(n_processes=cpu_count()):
     global in_queue, out_queues, flags, chromes, symbol_dict
     in_queue = Queue()
-    out_queues = [Queue() for i in range(cpu_count())]
-    flags = Array('i', cpu_count())
-    chromes = [Process(target=Clova_News, args=(in_queue, out_queues)) for i in range(cpu_count())]
+    out_queues = [Queue() for i in range(n_processes)]
+    flags = Array('i', n_processes)
+    chromes = [Process(target=Clova_News, args=(in_queue, out_queues)) for i in range(n_processes)]
     map(lambda x: x.start(), chromes)
     symbol_dict = pd.read_csv('symbols.csv', index_col='Name', dtype=str).to_dict()['Code']
 
@@ -188,5 +188,6 @@ def run(handler_class=ClovaServer, port=80): \
 
 
 if __name__ == '__main__':
-    set_env()
+    print('because of low processing power, number of processes is set as 2.')
+    set_env(2)
     run()
