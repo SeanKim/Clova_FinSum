@@ -5,7 +5,7 @@ from socketserver import ThreadingMixIn
 
 import pandas as pd
 
-from News_reader import Clova_News
+from Browser import Clova_News
 from data import User
 
 
