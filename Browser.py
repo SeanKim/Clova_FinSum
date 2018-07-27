@@ -70,6 +70,57 @@ class Clova_News():
     def set_tickers(self, tickers):
         self.tickers = tickers
 
+    def recommend(self, __):
+        today = datetime.datetime.now().strftime('%Y-%m-%d')
+        self.recommend_df = pd.read_csv('./recommend_df.csv').set_index('Unnamed: 0')
+        self.recommend_df.columns = [0,1,2]
+        #self.recommend_df = pd.DataFrame([[pd.Timestamp('2018-06-28'), 0, 0]])
+        if pd.Timestamp(self.recommend_df.iloc[0,0]) + pd.DateOffset(days=1) < pd.Timestamp(today):
+            #self.recommend_df.iloc[0,:] = ['2018-06-28',0,0]
+            i = 1
+            break_signal = False
+            buys = []
+            while not break_signal:
+                self.driver.get('http://hkconsensus.hankyung.com/apps.analysis/analysis.list?skinType=business&sdate={}&edate={}&order_type=&now_page={}'.format(self.recommend_df.iloc[0,0], today, i))
+                print('http://hkconsensus.hankyung.com/apps.analysis/analysis.list?skinType=business&sdate={}&edate={}&order_type=&now_page={}'.format(self.recommend_df.iloc[0,0], today, i))
+                WebDriverWait(self.driver, 10).until(expected_conditions.element_to_be_clickable(
+                    (By.XPATH, '//*/div[2]/table/thead/tr/th[2]/a')))
+                html = self.driver.page_source
+                soup = BeautifulSoup(html, 'html.parser')
+                soup.findAll('td', attrs={'class': 'dv_input'})
+                date = soup.findAll('td', attrs={'class': 'first txt_number'})
+                if len(date) == 0:
+                    break
+                stock_name = soup.findAll('div', attrs={'class': 'pop01 disNone'})
+                opinion = soup.findAll('td')
+                iContents = []
+                for j in range(0, len(stock_name)):
+                    jContents = []
+                    jdate = date[j].text.strip()
+                    jstock_name = stock_name[j].text.strip().split('(')[1].split(')')[0]
+                    jopinion = opinion[3 + 9 * j].text.strip()
+
+                    jContents.append(jdate)
+                    if pd.Timestamp(self.recommend_df.iloc[0,0]) - pd.DateOffset(days=1) >= pd.Timestamp(jdate):
+                        break_signal = True
+                        break
+                    jContents.append(jstock_name)
+                    jContents.append(jopinion)
+                    iContents.append(jContents)
+                    result = pd.DataFrame(iContents)
+                    buy = result[result[2] == "Buy"]
+                    if not buy.empty:
+                        buys.append(buy)
+                i += 1
+            self.recommend_df = pd.concat([self.recommend_df, pd.concat(buys)])
+            self.recommend_df.iloc[:,0] = pd.to_datetime(self.recommend_df.iloc[:,0], format='%Y-%m-%d')
+            self.recommend_df = self.recommend_df.drop_duplicates()
+            self.recommend_df = self.recommend_df.sort_values(0, ascending=False)
+            self.recommend_df = self.recommend_df[self.recommend_df.iloc[:,0] > pd.Timestamp(today) - pd.DateOffset(months=1)]
+            self.recommend_df.to_csv('./recommend_df.csv')
+        recommend = list(self.recommend_df.iloc[:,:2].groupby(by=1).count().sort_values(0, ascending=False).index[:100])
+        self.out_queues[self.ix].put(recommend)
+
     def recent_news(self, *args):
         ticker = args[0]
         recent_day = args[1]
@@ -412,20 +463,25 @@ class Clova_News():
 
 
 if __name__ == '__main__':
-    news = Clova_News(tickers=['000111'])
-    # news.summary_all(news.recent_news('000660'))
-    summaries = pd.DataFrame(columns=['title', 'summary'])
-    links = news.recent_news('000880')
+    from multiprocessing import Queue
+    inque= Queue()
+    inque.put(['recommend', [None], None])
+    news = Clova_News(inque, None, None)
 
-    for i in range(len(links)):
-        news.link = links['Link'][i]
-        news.read_news2()
-        a = time.time()
-        news.summarize()
-        print(time.time() - a)
-        print(news.summary)
-        summaries = summaries.append(pd.DataFrame([[news.title, news.summary]], columns=['title', 'summary']))
-    print(summaries)
+    #news.recommend()
+    # news.summary_all(news.recent_news('000660'))
+    # summaries = pd.DataFrame(columns=['title', 'summary'])
+    # links = news.recent_news('000880')
+    #
+    # for i in range(len(links)):
+    #     news.link = links['Link'][i]
+    #     news.read_news2()
+    #     a = time.time()
+    #     news.summarize()
+    #     print(time.time() - a)
+    #     print(news.summary)
+    #     summaries = summaries.append(pd.DataFrame([[news.title, news.summary]], columns=['title', 'summary']))
+    # print(summaries)
     # news.get_news(max_page=10)
     # news.df.to_csv('./news.csv')
     # news.get_filing_api()

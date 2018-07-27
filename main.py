@@ -113,6 +113,21 @@ class ClovaServer(BaseHTTPRequestHandler):
                 return 'SimpleSpeech', symbol + '이 들어가는 종목은 ' + ', '.join(
                     simmilars) + '이 있습니다. 이 중 하나를 말씀해 주세요.', False, sessionAttributes
 
+    def stockRecommend(self):
+        in_queue.put(['recommend', None, self.ix])
+        recommend = out_queues[self.ix].get()
+        code_to_symbol = {v: k for k, v in symbol_dict.iteritems()}
+
+        symbol_recommend = []
+        for stock in recommend:
+            try:
+                symbol_recommend.append(code_to_symbol[stock])
+            except:
+                pass
+            if len(symbol_recommend) == 5:
+                break
+        return 'SimpleSpeech', '최근 한달간 애널리스트가 가장 많이 추천한 종목은 {} 입니다'.format(', '.join(symbol_recommend))
+
     def currentFavorite(self):
         self.user = User(self.body['context']['System']['user']['userId'])
         cfs = ', '.join([symbol for symbol in self.user.data])
