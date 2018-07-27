@@ -113,6 +113,23 @@ class ClovaServer(BaseHTTPRequestHandler):
                 return 'SimpleSpeech', symbol + '이 들어가는 종목은 ' + ', '.join(
                     simmilars) + '이 있습니다. 이 중 하나를 말씀해 주세요.', False, sessionAttributes
 
+    def currentFavorite(self):
+        self.user = User(self.body['context']['System']['user']['userId'])
+        cfs = ', '.join([symbol for symbol in self.user.data])
+        return 'SimpleSpeech', '현재 관심종목은 {}입니다'.format(cfs), True, None
+
+    def removeFavorite(self):
+        self.user = User(self.body['context']['System']['user']['userId'])
+        try:
+            symbol = self.body['request']['intent']['slots']['symbol']['value']
+            symbol_code = symbol_dict[symbol]
+        except (KeyError, TypeError) as e:
+            symbol = None if 'symbol' not in locals() else symbol
+            return self.no_symbol(symbol, sessionAttributes={'name': 'addFavorite'})
+        self.user.data = self.user.data[self.user.data != symbol]
+        self.user.save_data()
+        return 'SimpleSpeech', symbol + '를 관심종목에서 제거하였습니다. 계속 제거를 원하시면 종목 이름을 말씀해 주세요.', False, {'name': 'removeFavorite'}
+
     def addFavorite(self):
         self.user = User(self.body['context']['System']['user']['userId'])
         try:
