@@ -11,7 +11,7 @@ import jpype
 import pandas as pd
 import requests
 from konlpy import jvm
-from konlpy.tag import Twitter
+from konlpy.tag import Twitter, Kkma
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions
@@ -30,6 +30,8 @@ class Clova_News():
         self.dart_api = 'd74599ed29c73354a63fa01fabb53271a717545a'
         self.options = webdriver.ChromeOptions()
         self.nlp = Twitter()
+        kkma = Kkma()
+        self.to_nouns = kkma.nouns
         self.__load_stopwords()
         if not jpype.isJVMStarted():
             jvm.init_jvm()
@@ -275,6 +277,18 @@ class Clova_News():
         news_text = news_text.replace('[]', '')
         self.content = news_text
         self.summary = ''
+
+    def count_words(self, *args):
+        news = args[0]
+        self.link = news['Link']
+        self.read_news()
+        news_concat = self.title +'.' + self.content
+        words = self.to_nouns(news_concat)
+        words_dict = {word:0 for word in words}
+        for word in words_dict:
+            words_dict[word] = news_concat.count(word)
+        return words_dict
+
 
     def do_summary(self, *args):
         news = args[0]
