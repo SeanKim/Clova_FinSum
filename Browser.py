@@ -174,13 +174,13 @@ class Clova_News():
                 trs = self.driver.find_elements_by_xpath("/html/body/div/table[1]/tbody[1]/*")
 
                 for tr in trs:
-
                     title = tr.find_element_by_class_name('title').text
                     if tr.get_attribute('class').startswith('relation_lst') or \
                             title.startswith('[한경로보') or \
                             title.startswith('[스팟') or \
                             title.startswith('[이데일리N') or \
-                            title.startswith('[마켓포인'):
+                            title.startswith('[마켓포인') or \
+                            title.startswith('[표'):
                         continue
                     date = tr.find_element_by_class_name('date').text
                     link = tr.find_element_by_tag_name('a').get_attribute("href")
@@ -284,11 +284,37 @@ class Clova_News():
         self.read_news()
         news_concat = self.title +'.' + self.content
         words = self.to_nouns(news_concat)
-        words_dict = {word:0 for word in words}
-        for word in words_dict:
-            words_dict[word] = news_concat.count(word)
-        return words_dict
+        word_df = pd.DataFrame([[word, 0] for word in words], columns=['word', 'count'])
+        word_df.set_index('word', inplace=True)
+        for word in words:
+            word_df.loc[word, 'count'] = news_concat.count(word)
+        return word_df
 
+    def rise_fall(self, *args):
+        direction = args[0]
+        base_url = "https://finance.naver.com/sise/sise_{}.nhn".format(direction)
+        self.driver.get(base_url)
+
+        Contents = []
+        for i in range(1, 10):
+            contents = []
+            try:
+                xpath = self.driver.find_element_by_xpath(
+                    '//*[@id="contentarea"]/div[3]/table/tbody/tr[' + str(i + 2) + ']/td[2]/*')
+                kospi = xpath.text
+                contents.append(kospi)
+            except:
+                pass
+            try:
+                xpath = self.driver.find_element_by_xpath(
+                    '//*[@id="contentarea"]/div[4]/table/tbody/tr[' + str(i + 2) + ']/td[2]/*')
+                kosdaq = xpath.text
+                contents.append(kosdaq)
+            except:
+                pass
+            Contents.append(contents)
+        rise_fall_list = pd.DataFrame(Contents).T.dropna(axis=1)
+        self.out_queues[self.ix].put(list(rise_fall_list.values()))
 
     def do_summary(self, *args):
         news = args[0]
@@ -479,8 +505,8 @@ class Clova_News():
 if __name__ == '__main__':
     from multiprocessing import Queue
     inque= Queue()
-    inque.put(['recommend', [None], None])
-    news = Clova_News(inque, None, None)
+    inque.put(['rise_fall', ['fall'], 0])
+    news = Clova_News(inque, 0, 0)
 
     #news.recommend()
     # news.summary_all(news.recent_news('000660'))

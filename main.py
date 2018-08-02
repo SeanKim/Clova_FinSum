@@ -7,7 +7,7 @@ import pandas as pd
 
 from Browser import Clova_News
 from data import User
-
+from collections import defaultdict
 
 class ClovaServer(BaseHTTPRequestHandler):
     def set_header(self):
@@ -94,11 +94,12 @@ class ClovaServer(BaseHTTPRequestHandler):
 
     def reserving_queue(self):
         ix = None
-        for i, v in enumerate(flags):
-            if v == 0:
-                flags[i] = 1
-                ix = i
-                break
+        while ix == None:
+            for i, v in enumerate(flags):
+                if v == 0:
+                    flags[i] = 1
+                    ix = i
+                    break
         return ix
 
     def no_symbol(self, symbol, sessionAttributes=None):
@@ -112,6 +113,51 @@ class ClovaServer(BaseHTTPRequestHandler):
             else:
                 return 'SimpleSpeech', symbol + '이 들어가는 종목은 ' + ', '.join(
                     simmilars) + '이 있습니다. 이 중 하나를 말씀해 주세요.', False, sessionAttributes
+
+    def __rise_fall(self, direction):
+        name_list = out_queues[self.ix].get()
+        valid_list = []
+        valid_names = []
+        i = 0
+        for name in name_list:
+            try:
+                valid_list.append(symbol_dict[name])
+                valid_names.append(name)
+                i += 1
+                if i == 3:
+                    break
+            except:
+                pass
+        msg = '코스피 중에서 가장 많이 {} 세 주식은 {}입니다'.format(direction, ', '.join(valid_names))
+        for code in valid_list:
+            in_queue.put(['recent_news', [code, 1], self.ix])
+            news_list = out_queues[self.ix].get()
+            if type(news_list) != pd.DataFrame:
+                pass
+            else:
+                word_df = None
+                for news in news_list:
+                    in_queue.put(['count_words'[news], self.ix])
+                kk = 0
+                while kk < len(news_list):
+                    if word_df == None:
+                        word_df = out_queues[self.ix].get()
+                        kk +=1
+                    else:
+                        word_df = word_df + out_queues[self.ix].get()
+                msg += '{}와 관련되어 가장 언급이 많이 된 단어 다섯가지는 {},'.format(code, ', '.join(
+                    list(word_df.sort_values(ascending=False)[:5].values())))
+        msg += '입니다'
+        return 'SimplceSpeech', msg
+
+    def Rise(self):
+        in_queue.put(['rise_fall', ['rise'], self.ix])
+        self.__rise_fall('오른')
+
+    def Fall(self):
+        in_queue.put(['upper_lower', ['fall'], self.ix])
+        self.__rise_fall('떨어진')
+
 
     def stockRecommend(self):
         in_queue.put(['recommend', None, self.ix])
