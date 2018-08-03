@@ -154,7 +154,7 @@ class ClovaServer(BaseHTTPRequestHandler):
                     else:
                         word_df = word_df + out_queues[self.ix].get()
                 msg += '{}와 관련되어 가장 언급이 많이 된 단어 다섯가지는 {},'.format(code, ', '.join(
-                    list(word_df.sort_values(ascending=False)[:5].values())))
+                    list(word_df.sort_values(ascending=False)[:5].values)))
         msg += '입니다'
         return 'SimplceSpeech', msg
 
@@ -204,7 +204,7 @@ class ClovaServer(BaseHTTPRequestHandler):
         except (KeyError, TypeError) as e:
             symbol = None if 'symbol' not in locals() else symbol
             return self.no_symbol(symbol, sessionAttributes={'name': 'addFavorite'})
-        if symbol_code in self.user.data.values():
+        if symbol_code in self.user.data.values:
             return 'SimpleSpeech' '이미 추가 되어 있는 종목입니다. 계속 추가를 원하시면 종목 이름을 말씀해 주세요.', False, {'name':'addFavorite'}
         else:
             self.user.data = self.user.data.append(pd.Series([symbol_code]))

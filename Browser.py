@@ -314,7 +314,7 @@ class Clova_News():
                 pass
             Contents.append(contents)
         rise_fall_list = pd.DataFrame(Contents).T.dropna(axis=1)
-        self.out_queues[self.ix].put(list(rise_fall_list.values()))
+        self.out_queues[self.ix].put(list(rise_fall_list.values))
 
     def do_summary(self, *args):
         news = args[0]
