@@ -114,6 +114,14 @@ class ClovaServer(BaseHTTPRequestHandler):
                 return 'SimpleSpeech', symbol + '이 들어가는 종목은 ' + ', '.join(
                     simmilars) + '이 있습니다. 이 중 하나를 말씀해 주세요.', False, sessionAttributes
 
+    def Rise(self):
+        in_queue.put(['rise_fall', ['rise'], self.ix])
+        self.__rise_fall('오른')
+
+    def Fall(self):
+        in_queue.put(['upper_lower', ['fall'], self.ix])
+        self.__rise_fall('떨어진')
+
     def __rise_fall(self, direction):
         name_list = out_queues[self.ix].get()
         valid_list = []
@@ -150,15 +158,6 @@ class ClovaServer(BaseHTTPRequestHandler):
         msg += '입니다'
         return 'SimplceSpeech', msg
 
-    def Rise(self):
-        in_queue.put(['rise_fall', ['rise'], self.ix])
-        self.__rise_fall('오른')
-
-    def Fall(self):
-        in_queue.put(['upper_lower', ['fall'], self.ix])
-        self.__rise_fall('떨어진')
-
-
     def stockRecommend(self):
         in_queue.put(['recommend', None, self.ix])
         recommend = out_queues[self.ix].get()
@@ -174,6 +173,11 @@ class ClovaServer(BaseHTTPRequestHandler):
                 break
         return 'SimpleSpeech', '최근 한달간 애널리스트가 가장 많이 추천한 종목은 {} 입니다'.format(', '.join(symbol_recommend))
 
+    def morningNews(self):
+        # 전날 상승종목 하락종목 워드클라우드
+        # 전날 장 요약, 수급 요약
+        # 관심종목 별 뉴스
+
     def currentFavorite(self):
         self.user = User(self.body['context']['System']['user']['userId'])
         cfs = ', '.join([symbol for symbol in self.user.data])
@@ -187,7 +191,7 @@ class ClovaServer(BaseHTTPRequestHandler):
         except (KeyError, TypeError) as e:
             symbol = None if 'symbol' not in locals() else symbol
             return self.no_symbol(symbol, sessionAttributes={'name': 'addFavorite'})
-        self.user.data = self.user.data[self.user.data != symbol]
+        self.user.data = self.user.data[self.user.data != symbol].dropna()
         self.user.save_data()
         return 'SimpleSpeech', symbol + '를 관심종목에서 제거하였습니다. 계속 제거를 원하시면 종목 이름을 말씀해 주세요.', False, {'name': 'removeFavorite'}
 
@@ -199,9 +203,12 @@ class ClovaServer(BaseHTTPRequestHandler):
         except (KeyError, TypeError) as e:
             symbol = None if 'symbol' not in locals() else symbol
             return self.no_symbol(symbol, sessionAttributes={'name': 'addFavorite'})
-        self.user.data = self.user.data.append(pd.Series([symbol_code]))
-        self.user.save_data()
-        return 'SimpleSpeech', symbol + '가 관심종목에 추가되었습니다. 계속 추가를 원하시면 종목 이름을 말씀해 주세요.', False, {'name': 'addFavorite'}
+        if symbol_code in self.user.data.values():
+            return 'SimpleSpeech' '이미 추가 되어 있는 종목입니다. 계속 추가를 원하시면 종목 이름을 말씀해 주세요.', False, {'name':'addFavorite'}
+        else:
+            self.user.data = self.user.data.append(pd.Series([symbol_code]))
+            self.user.save_data()
+            return 'SimpleSpeech', symbol + '가 관심종목에 추가되었습니다. 계속 추가를 원하시면 종목 이름을 말씀해 주세요.', False, {'name': 'addFavorite'}
 
     def ing(self):
         try:
