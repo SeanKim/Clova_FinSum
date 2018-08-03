@@ -174,6 +174,7 @@ class ClovaServer(BaseHTTPRequestHandler):
         return 'SimpleSpeech', '최근 한달간 애널리스트가 가장 많이 추천한 종목은 {} 입니다'.format(', '.join(symbol_recommend))
 
     def morningNews(self):
+        pass
         # 전날 상승종목 하락종목 워드클라우드
         # 전날 장 요약, 수급 요약
         # 관심종목 별 뉴스
