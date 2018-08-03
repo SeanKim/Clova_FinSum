@@ -119,7 +119,7 @@ class ClovaServer(BaseHTTPRequestHandler):
         self.__rise_fall('오른')
 
     def Fall(self):
-        in_queue.put(['upper_lower', ['fall'], self.ix])
+        in_queue.put(['rise_fall', ['fall'], self.ix])
         self.__rise_fall('떨어진')
 
     def __rise_fall(self, direction):
