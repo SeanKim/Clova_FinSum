@@ -123,13 +123,13 @@ class ClovaServer(BaseHTTPRequestHandler):
         in_queue.put(['rise_fall', ['rise'], self.ix])
         msg = self.__rise_fall('오른')
         print(msg)
-        return 'SimplceSpeech', msg
+        return 'SimplceSpeech', msg, True, None
 
     def Fall(self):
         in_queue.put(['rise_fall', ['fall'], self.ix])
         msg = self.__rise_fall('떨어진')
         print(msg)
-        return 'SimplceSpeech', msg
+        return 'SimplceSpeech', msg, True, None
 
     def __rise_fall(self, direction):
         name_list = out_queues[self.ix].get()
@@ -173,7 +173,7 @@ class ClovaServer(BaseHTTPRequestHandler):
     def stockRecommend(self):
         in_queue.put(['recommend', None, self.ix])
         recommend = out_queues[self.ix].get()
-        code_to_symbol = {v: k for k, v in symbol_dict.iteritems()}
+        code_to_symbol = {v: k for k, v in symbol_dict.items()}
 
         symbol_recommend = []
         for stock in recommend:
@@ -193,7 +193,8 @@ class ClovaServer(BaseHTTPRequestHandler):
 
     def currentFavorite(self):
         self.user = User(self.body['context']['System']['user']['userId'])
-        cfs = ', '.join([symbol for symbol in self.user.data['symbol']])
+        code_to_symbol = {v: k for k, v in symbol_dict.items()}
+        cfs = ', '.join([code_to_symbol[symbol] for symbol in self.user.data['symbol']])
         print(self.user.data)
         return 'SimpleSpeech', '현재 관심종목은 {}입니다'.format(cfs), True, None
 
