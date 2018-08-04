@@ -147,7 +147,7 @@ class ClovaServer(BaseHTTPRequestHandler):
         msg = '코스피 중에서 가장 많이 {} 세 주식은 {}입니다. '.format(direction, ', '.join(valid_names))
         #todo 뉴스리스트 한번에 넣고 코드별로 정리하게 하기
         for n, code in enumerate(valid_list):
-            in_queue.put(['recent_news', [code, 1], self.ix])
+            in_queue.put(['recent_news', [code, 3], self.ix])
             news_list = out_queues[self.ix].get()
             if type(news_list) != pd.DataFrame:
                 pass
