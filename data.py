@@ -8,9 +8,9 @@ class User():
     def __init__(self, user_id):
         self.user_id = user_id
         if os.path.exists('./user_data/' + user_id):
-            self.data = pd.Series.from_csv('./user_data/' + user_id)
+            self.data = pd.read_csv('./user_data/' + user_id, dtype={'symbol':str}, index_col=['Unnamed: 0'])
         else:
-            self.data = pd.Series(name='Symbol')
+            self.data = pd.DataFrame(columns=['symbol'])
 
     def save_data(self):
         self.data.to_csv('./user_data/' + self.user_id)

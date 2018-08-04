@@ -20,21 +20,26 @@ class ClovaServer(BaseHTTPRequestHandler):
         self.ix = self.reserving_queue()
         # do_main 함수는 json request 내 name과 똑같은 이름의 내부 함수를 실행하므로
         # 원하는 동작을 일으킬 함수는 그에 해당하는 intent와 똑같은 이름으로 정해줘야 함
-        try:
+        # try:
+        if self.body['request']['type'] == 'LaunchRequest':
+            self.set_response(
+            *('SimpleSpeech', '무엇을 도와드릴까요?', False, None, True, '도움말을 듣고 싶으시면 \"도움말 들려줘라고 말해 주세요.\"'))
+            self.do_response()
+        else:
             self.set_response(*getattr(self, self.body['request']['intent']['name'])())
             self.do_response()
-        except (AttributeError, TypeError) as e:
-            try:
-                if self.body['request']['type'] == 'LaunchRequest':
-                    self.set_response(
-                        *('SimpleSpeech', '무엇을 도와드릴까요?', False, None, True, '도움말을 듣고 싶으시면 \"도움말 들려줘라고 말해 주세요.\"'))
-                    self.do_response()
-                else:
-                    self.set_response(*('SimpleSpeech', '다시 한 번 말씀해 주세요', False, None))
-                    self.do_response()
-            except:
-                self.set_response(*('SimpleSpeech', '다시 한 번 말씀해 주세요', False, None))
-                self.do_response()
+        # except (AttributeError, TypeError) as e:
+        #     try:
+        #         if self.body['request']['type'] == 'LaunchRequest':
+        #             self.set_response(
+        #                 *('SimpleSpeech', '무엇을 도와드릴까요?', False, None, True, '도움말을 듣고 싶으시면 \"도움말 들려줘라고 말해 주세요.\"'))
+        #             self.do_response()
+        #         else:
+        #             self.set_response(*('SimpleSpeech', '다시 한 번 말씀해 주세요', False, None))
+        #             self.do_response()
+        #     except:
+        #         self.set_response(*('SimpleSpeech', '다시 한 번 말씀해 주세요', False, None))
+        #         self.do_response()
 
         del self.speech_body, self.speech_type, self.shouldEndSession, self.sessionAttributes, \
             self.do_reprompt, self.reprompt_msg
@@ -116,18 +121,22 @@ class ClovaServer(BaseHTTPRequestHandler):
 
     def Rise(self):
         in_queue.put(['rise_fall', ['rise'], self.ix])
-        self.__rise_fall('오른')
+        msg = self.__rise_fall('오른')
+        print(msg)
+        return 'SimplceSpeech', msg
 
     def Fall(self):
         in_queue.put(['rise_fall', ['fall'], self.ix])
-        self.__rise_fall('떨어진')
+        msg = self.__rise_fall('떨어진')
+        print(msg)
+        return 'SimplceSpeech', msg
 
     def __rise_fall(self, direction):
         name_list = out_queues[self.ix].get()
         valid_list = []
         valid_names = []
         i = 0
-        for name in name_list:
+        for name in name_list[0]:
             try:
                 valid_list.append(symbol_dict[name])
                 valid_names.append(name)
@@ -136,27 +145,30 @@ class ClovaServer(BaseHTTPRequestHandler):
                     break
             except:
                 pass
-        msg = '코스피 중에서 가장 많이 {} 세 주식은 {}입니다'.format(direction, ', '.join(valid_names))
-        for code in valid_list:
+
+        msg = '코스피 중에서 가장 많이 {} 세 주식은 {}입니다. '.format(direction, ', '.join(valid_names))
+        #todo 뉴스리스트 한번에 넣고 코드별로 정리하게 하기
+        for n, code in enumerate(valid_list):
             in_queue.put(['recent_news', [code, 1], self.ix])
             news_list = out_queues[self.ix].get()
             if type(news_list) != pd.DataFrame:
                 pass
             else:
                 word_df = None
-                for news in news_list:
-                    in_queue.put(['count_words'[news], self.ix])
+                for ii, news in news_list.iterrows():
+                    in_queue.put(['count_words', [news], self.ix])
                 kk = 0
                 while kk < len(news_list):
-                    if word_df == None:
+                    if type(word_df) != pd.DataFrame:
                         word_df = out_queues[self.ix].get()
-                        kk +=1
+                        kk += 1
                     else:
                         word_df = word_df + out_queues[self.ix].get()
-                msg += '{}와 관련되어 가장 언급이 많이 된 단어 다섯가지는 {},'.format(code, ', '.join(
-                    list(word_df.sort_values(ascending=False)[:5].values)))
+                        kk += 1
+                msg += '{}와 관련되어 가장 언급이 많이 된 단어 다섯가지는 {},'.format(valid_names[n], ', '.join(
+                    list(word_df.sort_values('count', ascending=False).index[:5].values)))
         msg += '입니다'
-        return 'SimplceSpeech', msg
+        return msg
 
     def stockRecommend(self):
         in_queue.put(['recommend', None, self.ix])
@@ -181,7 +193,8 @@ class ClovaServer(BaseHTTPRequestHandler):
 
     def currentFavorite(self):
         self.user = User(self.body['context']['System']['user']['userId'])
-        cfs = ', '.join([symbol for symbol in self.user.data])
+        cfs = ', '.join([symbol for symbol in self.user.data['symbol']])
+        print(self.user.data)
         return 'SimpleSpeech', '현재 관심종목은 {}입니다'.format(cfs), True, None
 
     def removeFavorite(self):
@@ -192,7 +205,7 @@ class ClovaServer(BaseHTTPRequestHandler):
         except (KeyError, TypeError) as e:
             symbol = None if 'symbol' not in locals() else symbol
             return self.no_symbol(symbol, sessionAttributes={'name': 'addFavorite'})
-        self.user.data = self.user.data[self.user.data != symbol].dropna()
+        self.user.data = self.user.data.loc[self.user.data['symbol'] != symbol_code, :].dropna()
         self.user.save_data()
         return 'SimpleSpeech', symbol + '를 관심종목에서 제거하였습니다. 계속 제거를 원하시면 종목 이름을 말씀해 주세요.', False, {'name': 'removeFavorite'}
 
@@ -204,10 +217,11 @@ class ClovaServer(BaseHTTPRequestHandler):
         except (KeyError, TypeError) as e:
             symbol = None if 'symbol' not in locals() else symbol
             return self.no_symbol(symbol, sessionAttributes={'name': 'addFavorite'})
-        if symbol_code in self.user.data.values:
-            return 'SimpleSpeech' '이미 추가 되어 있는 종목입니다. 계속 추가를 원하시면 종목 이름을 말씀해 주세요.', False, {'name':'addFavorite'}
+        if symbol_code in self.user.data['symbol'].values:
+            return 'SimpleSpeech', '이미 추가 되어 있는 종목입니다. 계속 추가를 원하시면 종목 이름을 말씀해 주세요.', False, {'name':'addFavorite'}
         else:
-            self.user.data = self.user.data.append(pd.Series([symbol_code]))
+            self.user.data = self.user.data.append(pd.DataFrame([symbol_code], columns=['symbol']))
+            print(self.user.data)
             self.user.save_data()
             return 'SimpleSpeech', symbol + '가 관심종목에 추가되었습니다. 계속 추가를 원하시면 종목 이름을 말씀해 주세요.', False, {'name': 'addFavorite'}
 

@@ -287,8 +287,10 @@ class Clova_News():
         word_df = pd.DataFrame([[word, 0] for word in words], columns=['word', 'count'])
         word_df.set_index('word', inplace=True)
         for word in words:
+            if len(word) <= 1:
+                continue
             word_df.loc[word, 'count'] = news_concat.count(word)
-        return word_df
+        self.out_queues[self.ix].put(word_df)
 
     def rise_fall(self, *args):
         direction = args[0]
