@@ -122,14 +122,12 @@ class ClovaServer(BaseHTTPRequestHandler):
     def Rise(self):
         in_queue.put(['rise_fall', ['rise'], self.ix])
         msg = self.__rise_fall('오른')
-        print(msg)
-        return 'SimplceSpeech', msg, True, None
+        return 'SimpleSpeech', msg
 
     def Fall(self):
         in_queue.put(['rise_fall', ['fall'], self.ix])
         msg = self.__rise_fall('떨어진')
-        print(msg)
-        return 'SimplceSpeech', msg, True, None
+        return 'SimpleSpeech', msg
 
     def __rise_fall(self, direction):
         name_list = out_queues[self.ix].get()
@@ -171,7 +169,7 @@ class ClovaServer(BaseHTTPRequestHandler):
         return msg
 
     def stockRecommend(self):
-        in_queue.put(['recommend', None, self.ix])
+        in_queue.put(['recommend', [None], self.ix])
         recommend = out_queues[self.ix].get()
         code_to_symbol = {v: k for k, v in symbol_dict.items()}
 
