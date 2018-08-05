@@ -231,19 +231,28 @@ class ClovaServer(BaseHTTPRequestHandler):
                 return 'SimpleSpeech', '오늘의 증권사 신규 추천 종목은 {}가 있어요.'.format(', '.join(symbol_recommend))
 
     def morningNews(self):
+        import time
+        a = time.time()
         msg = []
         msg += self.marketSummary('코스피')[1]
         msg += self.marketSummary('코스닥')[1]
+        print('market done', a-time.time())
+        a = time.time()
         msg += self.Rise()[1][:-1]
         msg += self.Fall()[1][:-1]
+        print('rise fall done', a-time.time())
         for code in self.user.data['symbol']:
+            a = time.time()
             msg += self.stockSummary(code, no_news=True)[1]
+            print('summary per sec', a - time.time())
+            a = time.time()
             msg += self.recentNews(code)[1]
+            print('news per sec', a - time.time())
+        a = time.time()
         msg += self.stockRecommend()
+        print('recommend', a-time.time())
 
-        """
-        시장요약, 급변종목 정보, 종목 정보 and 뉴스요약, 추천종목
-        """
+        return 'SpeechList', msg, True
 
     def currentFavorite(self):
         self.user = User(self.body['context']['System']['user']['userId'])
