@@ -153,8 +153,8 @@ class ClovaServer(BaseHTTPRequestHandler):
         else:
             sign = "마이너스"
 
-        msg += ['시장을 요약해드릴게요.'] + ['현재 지수는 {}이고 전날 대비 {} {}에요'.format(out[0], sign, out[1].split(' ')[0])] +\
-                ['수급현황은 개인: {}, 외국인: {}, 기관: {}을 기록하고 있어요'.format(out[4], out[5], out[6])]
+        msg += ['시장을 요약해드릴게요.'] + ['현재 지수는 {}이고 전날 대비 {} {}({})에요'.format(out[0], sign, out[1].split(' ')[0], out[1].split(' ')[1])] +\
+                ['수급현황은 개인: {}, 외국인: {}, 기관: {}을 기록하고 있어요'.replace('-', '마이너스').format(out[4], out[5], out[6])]
         return 'SpeechList', msg
 
     def Rise(self):
