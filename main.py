@@ -188,7 +188,7 @@ class ClovaServer(BaseHTTPRequestHandler):
             except:
                 pass
 
-        msg = ['코스피 중에서 가장 많이 {} 세 주식은 {}입니다. '.format(direction, ', '.join(valid_names))]
+        msg = ['코스피와 코스닥 종목 중에서 가장 많이 {} 세 주식은 {}입니다. '.format(direction, ', '.join(valid_names))]
         #todo 뉴스리스트 한번에 넣고 코드별로 정리하게 하기
         for name, code in zip(valid_names, valid_list):
             in_queue.put(['stock_summary', [code, name], self.ix])
@@ -196,7 +196,7 @@ class ClovaServer(BaseHTTPRequestHandler):
             if type(out[2][0]) == int or type(out[2][0]) == float:
                 pass
             else:
-                n = ['{}과 관련 된 최근 뉴스는 '.format(name)]
+                n = ['{}과 관련 된 최근 뉴스는 '.format(name.split(sign)[0])]
                 print(len(out[2][0]))
                 for i in range(len(out[2][0])):
                     n += [out[2][0][i]]
