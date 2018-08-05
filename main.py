@@ -210,16 +210,19 @@ class ClovaServer(BaseHTTPRequestHandler):
         in_queue.put(['recommend', [1, ], self.ix])
         recommend = out_queues[self.ix].get()
         code_to_symbol = {v: k for k, v in symbol_dict.items()}
-
-        symbol_recommend = []
-        for stock in recommend:
-            try:
-                symbol_recommend.append(code_to_symbol[stock])
-            except:
-                pass
-            if len(symbol_recommend) == 5:
-                break
-        return 'SimpleSpeech', '최근 한달간 애널리스트가 가장 많이 추천한 종목은 {} 입니다'.format(', '.join(symbol_recommend))
+        if len(recommend) -- 0:
+            return 'SimpleSpeech', '오늘의 증권사 신규 추천 종목이 없어요. 내일을 기다려봐요.'
+        else:
+            symbol_recommend = []
+            for stock in recommend:
+                try:
+                    symbol_recommend.append(code_to_symbol[stock])
+                except:
+                    pass
+            if len(symbol_recommend) == 0:
+                return 'SimpleSpeech', '오늘의 증권사 신규 추천 종목이 없어요. 내일을 기다려봐요.'
+            else:
+                return 'SimpleSpeech', '오늘의 증권사 신규 추천 종목은 {}가 있어요.'.format(', '.join(symbol_recommend))
 
     def morningNews(self):
         pass
