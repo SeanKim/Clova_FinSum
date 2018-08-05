@@ -1,5 +1,0 @@
-﻿스탑워드
-https://github.com/codelucas/newspaper/blob/master/newspaper/resources/text/stopwords-ko.txt
-
-요약
-Newspaper3k github
