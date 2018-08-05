@@ -11,14 +11,14 @@ import numpy as np
 import pandas as pd
 import requests
 
-from konlpy.tag import Mecab
+import jpype
+from konlpy.tag import Mecab, Twitter, Kkma
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.wait import WebDriverWait
 from bs4 import BeautifulSoup
 from config import *
-z
 
 class Clova_News():
     def __init__(self, in_queue, out_queues,i):  # ticker_path에 Ticker라는 column이 있어야함
