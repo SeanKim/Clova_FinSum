@@ -25,6 +25,9 @@ class ClovaServer(BaseHTTPRequestHandler):
             self.set_response(
             *('SimpleSpeech', '무엇을 도와드릴까요?', False, None, True, '도움말을 듣고 싶으시면 \"도움말 들려줘라고 말해 주세요.\"'))
             self.do_response()
+        elif self.body['request']['intent']['name'] == 'Clova.GuideIntent':
+            self.set_response(self.Help())
+            self.do_response()
         else:
             self.set_response(*getattr(self, self.body['request']['intent']['name'])())
             self.do_response()
@@ -118,6 +121,14 @@ class ClovaServer(BaseHTTPRequestHandler):
             else:
                 return 'SimpleSpeech', symbol + '이 들어가는 종목은 ' + ', '.join(
                     simmilars) + '이 있습니다. 이 중 하나를 말씀해 주세요.', False, sessionAttributes
+
+    def Help(self):
+        return 'SpeechList', ['금융비서는 관심종목 관리, 맞춤 금융 뉴스 진행, 종목 요약, 종목 뉴스 요약, 시장요약,  종목추천, 급변종목 최근 뉴스 등에 대해 알려드릴 수 있어요.'] +\
+                    ['미래에셋대우를 관심종목에 추가해줘, 미래에셋대우를 관심종목에서 제거해줘, 관심종목 알려줘라고 말해서 관심종목을 관리 하실 수 있고,'] + \
+                   ['금융뉴스 진행해줘라고 말씀하시면 관심종목에 등록 된 종목들을 기반으로 뉴스를 진행해 드려요.'] + \
+                    ['그 외에도 코스닥 시장 요약해줘'] + ['네이버 종목 요약해줘'] + ['삼성전자 뉴스 요약해줘'] +\
+                    ['추천 종목 알려줘'] + ['가장 많이 떨어진 종목 알려줘와 같은 기능이 있어요.'] +\
+                  ['자세한 사용방법을 알고 싶으시면 클로바 확장 서비스 관리 금융비서에 들어가 보세요.'], False
 
     def stockSummary(self):
         try:
