@@ -106,7 +106,7 @@ class ClovaServer(BaseHTTPRequestHandler):
             return 'SimpleSpeech', '해당하는 종목이 없습니다. 코스피 혹은 코스닥시장에 상장 된 종목만 가능합니다. 다시 말씀해 주세요.', False, sessionAttributes
         else:
             simmilars = []
-            [simmilars.append(key) if symbol in key else None for key in symbol_dict.keys()]
+            [simmilars.append(key) if symbol in key else None for key in name_to_code.keys()]
             if len(simmilars) == 0:
                 return 'SimpleSpeech', '해당하는 종목이 없습니다. 코스피 혹은 코스닥시장에 상장 된 종목만 가능합니다. 다시 말씀해 주세요.', False, sessionAttributes
             else:
@@ -121,31 +121,38 @@ class ClovaServer(BaseHTTPRequestHandler):
                     ['추천 종목 알려줘'] + ['가장 많이 떨어진 종목 알려줘와 같은 기능이 있어요.'] +\
                   ['자세한 사용방법을 알고 싶으시면 클로바 확장 서비스 관리, 금융비서에 들어가 보세요.'], False
 
-    def stockSummary(self):
-        try:
-            name = self.body['request']['intent']['slots']['symbol']['value']
-            code = symbol_dict[name]
-        except (KeyError, TypeError) as e:
-            code = None if 'code' not in locals() else code
-            return self.no_symbol(code)
+    def stockSummary(self, code=None, no_news=False):
+        if code == None:
+            try:
+                name = self.body['request']['intent']['slots']['symbol']['value']
+                code = name_to_code[name]
+            except (KeyError, TypeError) as e:
+                code = None if 'code' not in locals() else code
+                return self.no_symbol(code)
 
         in_queue.put(['stock_summary', [code, name], self.ix])
         _, out = out_queues[self.ix].get()
-        if type(out[2][0]) == int or type(out[2][0]) == float:
-            n = ['없어요']
+        if no_news:
+            msg = ['{}의 현재 주가는 {}으로 전날 대비 등락률 {}를 기록하고 있어요.'.format(name, out[0][0], out[0][2]).replace('-', '마이너스')] +\
+                  ['{} 기준 수급은 기관 {}주 외국인 {}주에요.'.format(out[1][0], out[1][1], out[1][2]).replace('-', '마이너스')]
         else:
-            n = []
-            print(len(out[2][0]))
-            for i in range(len(out[2][0])):
-                n += [out[2][0][i]]
-            n += ['가 있어요'] + ['자세한 뉴스 내용을 알고 싶으면. {} 뉴스 요약해줘 라고 말해주세요'.format(name)]
-        msg = ['{}의 현재 주가는 {}으로 전날 대비 등락률 {}를 기록하고 있어요.'.format(name, out[0][0], out[0][2]).replace('-', '마이너스')] +\
-              ['{} 기준 수급은 기관 {}주 외국인 {}주에요.'.format(out[1][0], out[1][1], out[1][2]).replace('-', '마이너스')]+ \
-              ['최근 3일간의 뉴스는'] + n
+            if type(out[2][0]) == int or type(out[2][0]) == float:
+                n = ['없어요']
+            else:
+                n = []
+                print(len(out[2][0]))
+                for i in range(len(out[2][0])):
+                    n += [out[2][0][i]]
+                n += ['가 있어요'] + ['자세한 뉴스 내용을 알고 싶으면. {} 뉴스 요약해줘 라고 말해주세요'.format(name)]
+            msg = ['{}의 현재 주가는 {}으로 전날 대비 등락률 {}를 기록하고 있어요.'.format(name, out[0][0], out[0][2]).replace('-', '마이너스')] +\
+                  ['{} 기준 수급은 기관 {}주 외국인 {}주에요.'.format(out[1][0], out[1][1], out[1][2]).replace('-', '마이너스')]+ \
+                  ['최근 3일간의 뉴스는'] + n
+
         return 'SpeechList', msg, False
 
-    def marketSummary(self):
-        market = self.body['request']['intent']['slots']['market']['value']
+    def marketSummary(self, market=None):
+        if market == None:
+            market = self.body['request']['intent']['slots']['market']['value']
         in_queue.put(['market_summary', [market,], self.ix])
         out = out_queues[self.ix].get()
         msg = []
@@ -161,16 +168,15 @@ class ClovaServer(BaseHTTPRequestHandler):
 
     def Rise(self):
         in_queue.put(['rise_fall', ['rise'], self.ix])
-        msg = self.__rise_fall('오른')
+        msg = self.__rise_fall(out_queues[self.ix].get(), '오른')
         return 'SpeechList', msg
 
     def Fall(self):
         in_queue.put(['rise_fall', ['fall'], self.ix])
-        msg = self.__rise_fall('떨어진')
+        msg = self.__rise_fall(out_queues[self.ix].get(),'떨어진')
         return 'SpeechList', msg
 
-    def __rise_fall(self, direction):
-        name_list = out_queues[self.ix].get()
+    def __rise_fall(self, name_list, direction):
         valid_list = []
         valid_names = []
         i = 0
@@ -180,7 +186,7 @@ class ClovaServer(BaseHTTPRequestHandler):
             sign = '마이너스'
         for name, per in name_list:
             try:
-                valid_list.append(symbol_dict[name])
+                valid_list.append(name_to_code[name])
                 valid_names.append('{}, {} {}%'.format(name, sign, per))
                 i += 1
                 if i == 3:
@@ -188,33 +194,35 @@ class ClovaServer(BaseHTTPRequestHandler):
             except:
                 pass
 
-        msg = ['코스피와 코스닥 종목 중에서 가장 많이 {} 세 주식은 {}입니다. '.format(direction, ', '.join(valid_names))]
+        msg = ['코스피와 코스닥 종목 중에서 가장 많이 {} 세 주식은 {}에요. '.format(direction, ', '.join(valid_names))]
         #todo 뉴스리스트 한번에 넣고 코드별로 정리하게 하기
         for name, code in zip(valid_names, valid_list):
             in_queue.put(['stock_summary', [code, name], self.ix])
-            _, out = out_queues[self.ix].get()
+
+        ii = 0
+        while ii < len(valid_names):
+            name, out = out_queues[self.ix].get()
             if type(out[2][0]) == int or type(out[2][0]) == float:
                 pass
             else:
-                n = ['{}과 관련 된 최근 뉴스는 '.format(name.split(sign)[0])]
+                n = ['{} 종목과 관련 된 최근 뉴스는 '.format(name.split(sign)[0])]
                 print(len(out[2][0]))
                 for i in range(len(out[2][0])):
                     n += [out[2][0][i]]
                 msg += n
-        msg += ['가 있어요.'] + ['자세한 뉴스 내용을 알고 싶으면. 종목이름과 함께 종목명 뉴스 요약해줘라고 말해주세요'.format(name)]
+        msg += ['가 있어요.'] + ['자세한 뉴스 내용을 알고 싶으면. 종목이름과 함께 종목명 뉴스 요약해줘라고 말해주세요']
         return msg
 
     def stockRecommend(self):
         in_queue.put(['recommend', [1, ], self.ix])
         recommend = out_queues[self.ix].get()
-        code_to_symbol = {v: k for k, v in symbol_dict.items()}
         if len(recommend) -- 0:
             return 'SimpleSpeech', '오늘의 증권사 신규 추천 종목이 없어요. 내일을 기다려봐요.'
         else:
             symbol_recommend = []
             for stock in recommend:
                 try:
-                    symbol_recommend.append(code_to_symbol[stock])
+                    symbol_recommend.append(code_to_name[stock])
                 except:
                     pass
             if len(symbol_recommend) == 0:
@@ -223,15 +231,23 @@ class ClovaServer(BaseHTTPRequestHandler):
                 return 'SimpleSpeech', '오늘의 증권사 신규 추천 종목은 {}가 있어요.'.format(', '.join(symbol_recommend))
 
     def morningNews(self):
-        pass
-        # 전날 상승종목 하락종목 워드클라우드
-        # 전날 장 요약, 수급 요약
-        # 관심종목 별 뉴스
+        msg = []
+        msg += self.marketSummary('코스피')[1]
+        msg += self.marketSummary('코스닥')[1]
+        msg += self.Rise()[1][:-1]
+        msg += self.Fall()[1][:-1]
+        for code in self.user.data['symbol']:
+            msg += self.stockSummary(code, no_news=True)[1]
+            msg += self.recentNews(code)[1]
+        msg += self.stockRecommend()
+
+        """
+        시장요약, 급변종목 정보, 종목 정보 and 뉴스요약, 추천종목
+        """
 
     def currentFavorite(self):
         self.user = User(self.body['context']['System']['user']['userId'])
-        code_to_symbol = {v: k for k, v in symbol_dict.items()}
-        cfs = ', '.join([code_to_symbol[symbol] for symbol in self.user.data['symbol']])
+        cfs = ', '.join([code_to_name[symbol] for symbol in self.user.data['symbol']])
         print(self.user.data)
         return 'SimpleSpeech', '현재 관심종목은 {}입니다'.format(cfs), True, None
 
@@ -239,7 +255,7 @@ class ClovaServer(BaseHTTPRequestHandler):
         self.user = User(self.body['context']['System']['user']['userId'])
         try:
             symbol = self.body['request']['intent']['slots']['symbol']['value']
-            symbol_code = symbol_dict[symbol]
+            symbol_code = name_to_code[symbol]
         except (KeyError, TypeError) as e:
             symbol = None if 'symbol' not in locals() else symbol
             return self.no_symbol(symbol, sessionAttributes={'name': 'addFavorite'})
@@ -251,7 +267,7 @@ class ClovaServer(BaseHTTPRequestHandler):
         self.user = User(self.body['context']['System']['user']['userId'])
         try:
             symbol = self.body['request']['intent']['slots']['symbol']['value']
-            symbol_code = symbol_dict[symbol]
+            symbol_code = name_to_code[symbol]
         except (KeyError, TypeError) as e:
             symbol = None if 'symbol' not in locals() else symbol
             return self.no_symbol(symbol, sessionAttributes={'name': 'addFavorite'})
@@ -267,21 +283,21 @@ class ClovaServer(BaseHTTPRequestHandler):
         try:
             if self.body['session']['sessionAttributes'] == None:
                 pass
-            # 도움말 띄우기 미구현
         except KeyError:
-            # durltj dpfjskaus eocjgoidehla
             self.set_response(*getattr(self, self.body['session']['sessionAttributes']['name'])())
 
-    def recentNews(self):
-        # 3문장으로 요약하도록 해 두었음, 결과가 적절하지 않을 시 수정 요망
-        try:
-            symbol = self.body['request']['intent']['slots']['symbol']['value']
-            symbol = symbol_dict[symbol]
-        except (KeyError, TypeError) as e:
-            symbol = None if 'symbol' not in locals() else symbol
-            return self.no_symbol(symbol)
-        in_queue.put(['recent_news', [symbol, NEWS_RECENT_DAY, MAX_NEWS_SUMMARY], self.ix])
-        news_list = out_queues[self.ix].get()
+    def recentNews(self, code=None):
+        if code == None:
+            try:
+                name = self.body['request']['intent']['slots']['symbol']['value']
+                code = name_to_code[name]
+            except (KeyError, TypeError) as e:
+                name = None if 'name' not in locals() else name
+                return self.no_symbol(name)
+        else:
+            name = code_to_name[code]
+        in_queue.put(['recent_news', [code, NEWS_RECENT_DAY, MAX_NEWS_SUMMARY], self.ix])
+        code, news_list = out_queues[self.ix].get()
         if type(news_list) != pd.DataFrame:
             return 'SimpleSpeech', '24시간 내에 관련 종목 뉴스가 없어요', True, None
         for kk, news in news_list.iterrows():
@@ -295,18 +311,20 @@ class ClovaServer(BaseHTTPRequestHandler):
         # https://developers.naver.com/console/clova/guide/CEK/References/CEK_API.md#CustomExtSpeechInfoObject
         for ll in speech_list:
             speech_text += ll
-        return 'SpeechList', ['뉴스를 요약해 드릴게요'] + speech_text[:-1], True, None
+        return 'SpeechList', ['{} 뉴스를 요약해 드릴게요'.format(name)] + speech_text[:-1], True, None
 
 
 def set_env(n_processes=cpu_count()):
-    global in_queue, out_queues, flags, chromes, symbol_dict
+    global in_queue, out_queues, flags, chromes, name_to_code, code_to_name
     in_queue = Queue()
     out_queues = [Queue() for i in range(n_processes)]
     flags = Array('i', n_processes)
     print('{}개의 셀레니움을 시작 중입니다.'.format(n_processes))
     chromes = [Process(target=Clova_News, args=(in_queue, out_queues, i)) for i in range(n_processes)]
     [c.start() for c in chromes]
-    symbol_dict = pd.read_csv('symbols.csv', index_col='Name', dtype=str).to_dict()['Code']
+    name_to_code = pd.read_csv('symbols.csv', index_col='Name', dtype=str).to_dict()['Code']
+    code_to_name = {v: k for k, v in name_to_code.items()}
+
 
 
 class server_class(ThreadingMixIn, HTTPServer):

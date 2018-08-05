@@ -169,15 +169,15 @@ class Clova_News():
 
 
     def recent_news(self, *args):
-        ticker = args[0]
+        code = args[0]
         recent_day = args[1]
         max_num = args[2]
         temps = []
         p = 1
         num = 0
         while True:
-            print('https://finance.naver.com/item/news_news.nhn?code={}&page={}'.format(ticker, p))
-            url = 'https://finance.naver.com/item/news_news.nhn?code={}&page={}'.format(ticker, p)
+            print('https://finance.naver.com/item/news_news.nhn?code={}&page={}'.format(code, p))
+            url = 'https://finance.naver.com/item/news_news.nhn?code={}&page={}'.format(code, p)
             self.driver.get(url)
             WebDriverWait(self.driver, 10).until(expected_conditions.element_to_be_clickable(
                 (By.XPATH, '//*/div[1]/table[1]/tbody/tr[1]/td[1]/a')))
@@ -187,7 +187,7 @@ class Clova_News():
                 try:
                     title = tr.find_element_by_class_name('title').text
                 except:
-                    self.out_queues[self.ix].put(None)
+                    self.out_queues[self.ix].put([code, None])
                     return
                 if tr.get_attribute('class').startswith('relation_lst') or \
                         title.startswith('[한경로보') or \
@@ -199,17 +199,17 @@ class Clova_News():
                 date = tr.find_element_by_class_name('date').text
                 if pd.Timestamp(date) <= (
                 pd.Timestamp(datetime.datetime.utcnow() - pd.DateOffset(days=recent_day, hours=-9))):
-                    self.out_queues[self.ix].put(pd.concat(temps) if len(temps) != 0 else self.out_queues[self.ix].put('뉴스가 없습니다.'))
+                    self.out_queues[self.ix].put([code, pd.concat(temps)] if len(temps) != 0 else self.out_queues[self.ix].put([code, '뉴스가 없습니다.']))
                     return
                 link = tr.find_element_by_tag_name('a').get_attribute("href")
 
                 if len(tr.find_elements_by_class_name('title')) > 0:
-                    temp = pd.DataFrame([[ticker, title, link]], columns=['Ticker', 'Title', 'Link'], index=[date])
+                    temp = pd.DataFrame([[code, title, link]], columns=['Ticker', 'Title', 'Link'], index=[date])
                     temps.append(temp)
 
                 num += 1
                 if num == max_num:
-                    self.out_queues[self.ix].put(pd.concat(temps) if len(temps) != 0 else None)
+                    self.out_queues[self.ix].put([code, pd.concat(temps)] if len(temps) != 0 else [code, None])
                     return
             p += 1
             time.sleep(random.uniform(0.02, 0.04))
