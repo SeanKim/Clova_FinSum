@@ -133,13 +133,13 @@ class ClovaServer(BaseHTTPRequestHandler):
             n = ['없어요']
         else:
             n = []
+            print(len(out[2][0]))
             for i in range(len(out[2][0])):
                 n += [out[2][0][i]]
-                n += [out[2][1][i]]
-            n += '가 있어요'
-        msg = ['{}의 현재 주가는 {}으로 전날 대비 등락률 {}를 기록하고 있어요.'.format(name, out[0][0], out[0][2])] +\
-              ['{} 기준 수급은 기관 {}주 외국인 {}주에요.'.format(out[1][0], out[1][1], out[1][2])]+ \
-              ['최근 3일간의 뉴스는'] + n + ['자세한 뉴스 내용을 알고 싶으면. {} 뉴스 요약해줘 라고 말해주세요'.format('name')]
+            n += ['가 있어요'] + ['자세한 뉴스 내용을 알고 싶으면. {} 뉴스 요약해줘 라고 말해주세요'.format(name)]
+        msg = ['{}의 현재 주가는 {}으로 전날 대비 등락률 {}를 기록하고 있어요.'.format(name, out[0][0], out[0][2]).replace('-', '마이너스')] +\
+              ['{} 기준 수급은 기관 {}주 외국인 {}주에요.'.format(out[1][0], out[1][1], out[1][2]).replace('-', '마이너스')]+ \
+              ['최근 3일간의 뉴스는'] + n
         return 'SpeechList', msg, False
 
     def marketSummary(self):
