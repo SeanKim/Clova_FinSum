@@ -360,28 +360,23 @@ class Clova_News():
 
     def rise_fall(self, *args):
         direction = args[0]
-        base_url = "https://finance.naver.com/sise/sise_{}.nhn".format(direction)
-        self.driver.get(base_url)
-
         Contents = []
-        for i in range(1, 10):
-            contents = []
-            try:
-                xpath = self.driver.find_element_by_xpath(
-                    '//*[@id="contentarea"]/div[3]/table/tbody/tr[' + str(i + 2) + ']/td[2]/*')
-                kospi = xpath.text
-                contents.append(kospi)
-            except:
-                pass
-            try:
-                xpath = self.driver.find_element_by_xpath(
-                    '//*[@id="contentarea"]/div[4]/table/tbody/tr[' + str(i + 2) + ']/td[2]/*')
-                kosdaq = xpath.text
-                contents.append(kosdaq)
-            except:
-                pass
-            Contents.append(contents)
-        rise_fall_list = pd.DataFrame(Contents).T.dropna(axis=1)
+        for i in range(2):
+            base_url = "https://finance.naver.com/sise/sise_{}.nhn?sosok={}".format(direction, i)
+            self.driver.get(base_url)
+            for i in range(1, 10):
+                contents = []
+                try:
+                    xpath = self.driver.find_element_by_xpath(
+                        '//*[@id="contentarea"]/div[3]/table/tbody/tr[' + str(i + 2) + ']/td[2]/*')
+                    kospi = xpath.text
+                    xpath = self.driver.find_element_by_xpath(
+                        '//*[@id="contentarea"]/div[3]/table/tbody/tr[' + str(i + 2) + ']/td[5]/*')
+                    rf = xpath.text
+                    Contents.append([kospi,float(rf[1:-1])])
+                except:
+                    pass
+        rise_fall_list = pd.DataFrame(Contents).dropna().sort_values(1, ascending=False)
         self.out_queues[self.ix].put(list(rise_fall_list.values))
 
     def do_summary(self, *args):
@@ -578,8 +573,10 @@ class Clova_News():
 if __name__ == '__main__':
     from multiprocessing import Queue
     inque= Queue()
-    inque.put(['recommend', [None], None])
-    news = Clova_News(inque, None, None)
+    outqueues = []
+    outqueues.append(Queue())
+    inque.put(['rise_fall', ['rise'], 0])
+    news = Clova_News(inque, outqueues, 0)
 
     #news.recommend()
     # news.summary_all(news.recent_news('000660'))

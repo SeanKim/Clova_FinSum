@@ -183,10 +183,14 @@ class ClovaServer(BaseHTTPRequestHandler):
         valid_list = []
         valid_names = []
         i = 0
-        for name in name_list[0]:
+        if direction == '오른':
+            sign = '플러스'
+        else:
+            sign = '마이너스'
+        for name, per in name_list:
             try:
                 valid_list.append(symbol_dict[name])
-                valid_names.append(name)
+                valid_names.append('{}, {} {}%'.format(name, sign, per))
                 i += 1
                 if i == 3:
                     break
