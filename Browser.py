@@ -195,7 +195,7 @@ class Clova_News():
                         title.startswith('[스팟') or \
                         title.startswith('[이데일리N') or \
                         title.startswith('[마켓포인') or \
-                        title.startswith('[표]') or
+                        title.startswith('[표]') or \
                         title.startswith('[fnRAS:')
                     continue
                 date = tr.find_element_by_class_name('date').text
