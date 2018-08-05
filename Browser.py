@@ -6,18 +6,19 @@ import random
 import re
 import time
 from collections import Counter
+import numpy as np
 
-import jpype
 import pandas as pd
 import requests
-from konlpy import jvm
-from konlpy.tag import Twitter, Kkma
+
+from konlpy.tag import Mecab
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.wait import WebDriverWait
 from bs4 import BeautifulSoup
-
+from config import *
+z
 
 class Clova_News():
     def __init__(self, in_queue, out_queues,i):  # ticker_path에 Ticker라는 column이 있어야함
@@ -39,6 +40,8 @@ class Clova_News():
         self.options.add_argument('headless')
         self.options.add_argument('window-size=1920x1080')
         self.options.add_argument("disable-gpu")
+        self.options.add_argument('--no-sandbox')
+        self.options.add_argument('--disable-dev-shm-usage')
 
         self.options.add_argument(
             "user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36")
@@ -73,62 +76,107 @@ class Clova_News():
         self.tickers = tickers
 
     def recommend(self, __):
-        today = datetime.datetime.now().strftime('%Y-%m-%d')
-        self.recommend_df = pd.read_csv('./recommend_df.csv').set_index('Unnamed: 0')
-        self.recommend_df.columns = [0,1,2]
-        #self.recommend_df = pd.DataFrame([[pd.Timestamp('2018-06-28'), 0, 0]])
-        if pd.Timestamp(self.recommend_df.iloc[0,0]) + pd.DateOffset(days=1) < pd.Timestamp(today):
-            #self.recommend_df.iloc[0,:] = ['2018-06-28',0,0]
-            i = 1
-            break_signal = False
-            buys = []
-            while not break_signal:
-                self.driver.get('http://hkconsensus.hankyung.com/apps.analysis/analysis.list?skinType=business&sdate={}&edate={}&order_type=&now_page={}'.format(self.recommend_df.iloc[0,0], today, i))
-                print('http://hkconsensus.hankyung.com/apps.analysis/analysis.list?skinType=business&sdate={}&edate={}&order_type=&now_page={}'.format(self.recommend_df.iloc[0,0], today, i))
-                WebDriverWait(self.driver, 10).until(expected_conditions.element_to_be_clickable(
-                    (By.XPATH, '//*/div[2]/table/thead/tr/th[2]/a')))
-                html = self.driver.page_source
-                soup = BeautifulSoup(html, 'html.parser')
-                soup.findAll('td', attrs={'class': 'dv_input'})
-                date = soup.findAll('td', attrs={'class': 'first txt_number'})
-                if len(date) == 0:
-                    break
-                stock_name = soup.findAll('div', attrs={'class': 'pop01 disNone'})
-                opinion = soup.findAll('td')
-                iContents = []
-                for j in range(0, len(stock_name)):
-                    jContents = []
-                    jdate = date[j].text.strip()
-                    jstock_name = stock_name[j].text.strip().split('(')[1].split(')')[0]
-                    jopinion = opinion[3 + 9 * j].text.strip()
+        today = (datetime.datetime.now() - datetime.timedelta(hours=9)).strftime('%Y-%m-%d')
+        i = 1
+        break_signal = False
+        buys = []
+        while not break_signal:
+            self.driver.get('http://hkconsensus.hankyung.com/apps.analysis/analysis.list?skinType=business&sdate={}&edate={}&pagenum=80&order_type=&now_page={}'.format(today, today, i))
+            print('http://hkconsensus.hankyung.com/apps.analysis/analysis.list?skinType=business&sdate={}&edate={}&pagenum=80&order_type=&now_page={}'.format(today, today, i))
+            WebDriverWait(self.driver, 10).until(expected_conditions.element_to_be_clickable(
+                (By.XPATH, '//*/div[2]/table/thead/tr/th[2]/a')))
+            html = self.driver.page_source
+            soup = BeautifulSoup(html, 'html.parser')
+            soup.findAll('td', attrs={'class': 'dv_input'})
+            date = soup.findAll('td', attrs={'class': 'first txt_number'})
+            if len(date) == 0:
+                break_signal = True
+                break
+            stock_name = soup.findAll('div', attrs={'class': 'pop01 disNone'})
+            opinion = soup.findAll('td')
+            iContents = []
+            if len(stock_name) == 0:
+                return []
+            for j in range(0, len(stock_name)):
+                jContents = []
+                jdate = date[j].text.strip()
+                jstock_name = stock_name[j].text.strip().split('(')[1].split(')')[0]
+                jopinion = opinion[3 + 9 * j].text.strip()
 
-                    jContents.append(jdate)
-                    if pd.Timestamp(self.recommend_df.iloc[0,0]) - pd.DateOffset(days=1) >= pd.Timestamp(jdate):
-                        break_signal = True
-                        break
-                    jContents.append(jstock_name)
-                    jContents.append(jopinion)
-                    iContents.append(jContents)
-                    result = pd.DataFrame(iContents)
-                    buy = result[result[2] == "Buy"]
-                    if not buy.empty:
-                        buys.append(buy)
-                i += 1
-            self.recommend_df = pd.concat([self.recommend_df, pd.concat(buys)])
-            self.recommend_df.iloc[:,0] = pd.to_datetime(self.recommend_df.iloc[:,0], format='%Y-%m-%d')
-            self.recommend_df = self.recommend_df.drop_duplicates()
-            self.recommend_df = self.recommend_df.sort_values(0, ascending=False)
-            self.recommend_df = self.recommend_df[self.recommend_df.iloc[:,0] > pd.Timestamp(today) - pd.DateOffset(months=1)]
-            self.recommend_df.to_csv('./recommend_df.csv')
-        recommend = list(self.recommend_df.iloc[:,:2].groupby(by=1).count().sort_values(0, ascending=False).index[:100])
-        self.out_queues[self.ix].put(recommend)
+                jContents.append(jdate)
+                #if pd.Timestamp(self.recommend_df.iloc[0,0]) - pd.DateOffset(days=1) >= pd.Timestamp(jdate):
+                if jdate != today:
+                    print(break_signal)
+                    break_signal = True
+                    break
+                jContents.append(jstock_name)
+                jContents.append(jopinion)
+                iContents.append(jContents)
+                result = pd.DataFrame(iContents)
+                buy = result[(result[2] == "Buy") | (result[2] == "Strong Buy")]
+                buys = buy[1].values
+            i += 1
+        self.out_queues[self.ix].put(buys)
+
+    def stock_summary(self, *args):
+        code = args[0]
+        name = args[1]
+        out = []
+        self.driver.get('https://finance.naver.com/item/sise.nhn?code={}'.format(code))
+        WebDriverWait(self.driver, 10).until(expected_conditions.element_to_be_clickable(
+            (By.XPATH, '//*[@id="_rate"]/span')))
+        rate = self.driver.find_element_by_xpath('//*[@id="_rate"]/span').text
+        price = self.driver.find_element_by_xpath('//*[@id="_nowVal"]').text
+        changes =  self.driver.find_element_by_xpath('// *[ @ id = "_diff"] / span').text
+        out.append([price, changes, rate])
+
+        self.driver.get('https://finance.naver.com/item/frgn.nhn?code={}'.format(code))
+        WebDriverWait(self.driver, 10).until(expected_conditions.element_to_be_clickable(
+            (By.XPATH, '//*[@id="content"]/div[2]/table[1]/tbody/tr[4]/td[6]/span')))
+        date = self.driver.find_element_by_xpath('//*[@id="content"]/div[2]/table[1]/tbody/tr[4]/td[1]/span').text
+        korean = self.driver.find_element_by_xpath('//*[@id="content"]/div[2]/table[1]/tbody/tr[4]/td[6]/span').text
+        foreign = self.driver.find_element_by_xpath('//*[@id="content"]/div[2]/table[1]/tbody/tr[4]/td[7]/span').text
+        out.append([date, korean, foreign])
+
+        df = self.get_news(code, NEWS_RECENT_DAY, MAX_NEWS_SUMMARY)
+        if type(df) == str:
+            out.append([-1, -1])
+        else:
+            out.append([df['Title'].values, df['Link'].values])
+        self.out_queues[self.ix].put([name, out])
+
+    def market_summary(self, *args):
+        market = args[0]
+        if market == '코스닥':
+            self.driver.get('https://finance.naver.com/sise/sise_index.nhn?code=KOSDAQ')
+        else:
+            self.driver.get('https://finance.naver.com/sise/sise_index.nhn?code=KOSPI')
+        WebDriverWait(self.driver, 10).until(expected_conditions.element_to_be_clickable(
+            (By.XPATH, '//*[@id="now_value"]')))
+        index = self.driver.find_element_by_xpath('//*[@id="now_value"]').text
+        change_rate = self.driver.find_element_by_xpath('//*[@id="change_value_and_rate"]').text
+        up = self.driver.find_element_by_xpath('//*[@id="contentarea_left"]/div[2]/div/div[2]/table/tbody/tr[4]/td/ul/li[2]/a/span').text
+        down = self.driver.find_element_by_xpath('//*[@id="contentarea_left"]/div[2]/div/div[2]/table/tbody/tr[4]/td/ul/li[4]/a/span').text
+        indiv = self.driver.find_element_by_xpath('//*[@id="contentarea_left"]/div[2]/div/dl/dd[1]/span').text
+        foreign = self.driver.find_element_by_xpath('//*[@id="contentarea_left"]/div[2]/div/dl/dd[2]/span').text
+        korean = self.driver.find_element_by_xpath('//*[@id="contentarea_left"]/div[2]/div/dl/dd[3]/span').text
+
+        out = [index, change_rate, up, down, indiv, foreign, korean]
+
+        self.out_queues[self.ix].put(out)
+
+
+
 
     def recent_news(self, *args):
         ticker = args[0]
         recent_day = args[1]
+        max_num = args[2]
         temps = []
         p = 1
+        num = 0
         while True:
+            print('https://finance.naver.com/item/news_news.nhn?code={}&page={}'.format(ticker, p))
             url = 'https://finance.naver.com/item/news_news.nhn?code={}&page={}'.format(ticker, p)
             self.driver.get(url)
             WebDriverWait(self.driver, 10).until(expected_conditions.element_to_be_clickable(
@@ -145,57 +193,75 @@ class Clova_News():
                         title.startswith('[한경로보') or \
                         title.startswith('[스팟') or \
                         title.startswith('[이데일리N') or \
-                        title.startswith('[마켓포인'):
+                        title.startswith('[마켓포인') or \
+                        title.startswith('[표]'):
                     continue
                 date = tr.find_element_by_class_name('date').text
                 if pd.Timestamp(date) <= (
                 pd.Timestamp(datetime.datetime.utcnow() - pd.DateOffset(days=recent_day, hours=-9))):
-                    self.out_queues[self.ix].put(pd.concat(temps) if len(temps) != 0 else None)
+                    self.out_queues[self.ix].put(pd.concat(temps) if len(temps) != 0 else self.out_queues[self.ix].put('뉴스가 없습니다.'))
                     return
                 link = tr.find_element_by_tag_name('a').get_attribute("href")
 
                 if len(tr.find_elements_by_class_name('title')) > 0:
                     temp = pd.DataFrame([[ticker, title, link]], columns=['Ticker', 'Title', 'Link'], index=[date])
                     temps.append(temp)
+
+                num += 1
+                if num == max_num:
+                    self.out_queues[self.ix].put(pd.concat(temps) if len(temps) != 0 else None)
+                    return
             p += 1
-            time.sleep(random.uniform(0.05, 0.1))
+            time.sleep(random.uniform(0.02, 0.04))
 
-    def get_news(self, max_page=1):  # 인스턴스 데이터프레임에 Profile이라는 column을 만들고, 해당 칼럼에 Ticker에 해당하는 Profile을 저장함
-        for i, ticker in enumerate(self.tickers):
-            for p in range(1, max_page + 1):
-                self.links = []
-                print(ticker, end=' ')
-                url = 'https://finance.naver.com/item/news_news.nhn?code={}&page={}'.format(ticker, p)
-                print(url)
-                self.driver.get(url)
+    def get_news(self, *args):  # 인스턴스 데이터프레임에 Profile이라는 column을 만들고, 해당 칼럼에 Ticker에 해당하는 Profile을 저장함
+        ticker = args[0]
+        recent_day = args[1]
+        max_num = args[2]
+        temps = []
+        p = 1
+        num = 0
+        while True:
+            print('https://finance.naver.com/item/news_news.nhn?code={}&page={}'.format(ticker, p))
+            url = 'https://finance.naver.com/item/news_news.nhn?code={}&page={}'.format(ticker, p)
+            self.driver.get(url)
+            WebDriverWait(self.driver, 10).until(expected_conditions.element_to_be_clickable(
+                (By.XPATH, '//*/div[1]/table[1]/tbody/tr[1]/td[1]/a')))
+            trs = self.driver.find_elements_by_xpath("/html/body/div/table[1]/tbody[1]/*")
 
-                WebDriverWait(self.driver, 10).until(expected_conditions.element_to_be_clickable(
-                    (By.XPATH, '//*/div[1]/table[1]/tbody/tr[1]/td[1]/a')))
-                trs = self.driver.find_elements_by_xpath("/html/body/div/table[1]/tbody[1]/*")
-
-                for tr in trs:
+            for tr in trs:
+                try:
                     title = tr.find_element_by_class_name('title').text
-                    if tr.get_attribute('class').startswith('relation_lst') or \
-                            title.startswith('[한경로보') or \
-                            title.startswith('[스팟') or \
-                            title.startswith('[이데일리N') or \
-                            title.startswith('[마켓포인') or \
-                            title.startswith('[표'):
-                        continue
-                    date = tr.find_element_by_class_name('date').text
-                    link = tr.find_element_by_tag_name('a').get_attribute("href")
+                except:
+                    return
+                if tr.get_attribute('class').startswith('relation_lst') or \
+                        title.startswith('[한경로보') or \
+                        title.startswith('[스팟') or \
+                        title.startswith('[이데일리N') or \
+                        title.startswith('[마켓포인') or \
+                        title.startswith('[표]'):
+                    continue
+                date = tr.find_element_by_class_name('date').text
+                if pd.Timestamp(date) <= (
+                        pd.Timestamp(datetime.datetime.utcnow() - pd.DateOffset(days=recent_day, hours=-9))):
+                    if len(temps) != 0:
+                        return pd.concat(temps)
+                    else:
+                        return '뉴스가 없습니다.'
+                link = tr.find_element_by_tag_name('a').get_attribute("href")
 
-                    if len(tr.find_elements_by_class_name('title')) > 0:
-                        if link not in self.links:
-                            temp = pd.DataFrame([[ticker, title, link]], columns=['Ticker', 'Title', 'Link'],
-                                                index=[date])
-                            self.news_df = self.news_df.append(temp)
-                            print("Date:", date, end='  ')
-                            print('Title : {0}    Link : {1}'.format(title, link))
-                print(str((p + max_page * i * 100) / (len(self.tickers) * max_page)) + "%", "done")
+                if len(tr.find_elements_by_class_name('title')) > 0:
+                    temp = pd.DataFrame([[ticker, title, link]], columns=['Ticker', 'Title', 'Link'], index=[date])
+                    temps.append(temp)
 
-                print()
-                time.sleep(random.uniform(0.05, 0.1))
+                num += 1
+                if num == max_num:
+                    if len(temps) != 0:
+                        return pd.concat(temps)
+                    else:
+                        return None
+            p += 1
+            time.sleep(random.uniform(0.02, 0.04))
 
     def get_filing(self):  # 인스턴스 데이터프레임에 Profile이라는 column을 만들고, 해당 칼럼에 Ticker에 해당하는 Profile을 저장함
         for i, ticker in enumerate(self.tickers):
@@ -320,14 +386,19 @@ class Clova_News():
 
     def do_summary(self, *args):
         news = args[0]
+        summary_num = args[1]
         self.link = news['Link']
         self.read_news()
-        self.summarize()
+        self.summarize(num=summary_num)
         self.out_queues[self.ix].put(pd.DataFrame([[self.title, self.summary]], columns=['title', 'summary']))
 
-    def summarize(self, num=3):
+    def summarize(self, num=3, select_list=SELECT_LIST):
         print(self.link)
-        morphs = self.nlp.morphs(self.title)
+        morphs = np.array(self.nlp.pos(self.title))
+        filter_func = lambda t: True if (t[1] in select_list) and len(t[0]) >= 2 else False
+        remain_index = np.array([filter_func(x) for x in morphs])
+        morphs = morphs[remain_index]
+        morphs = list(map(lambda t: t[0], morphs))
         sentences = self.__split_sentences('. ', '? ', '! ', '\n', '.\n', ';', )(self.content)
 
         dic = {}
@@ -507,8 +578,8 @@ class Clova_News():
 if __name__ == '__main__':
     from multiprocessing import Queue
     inque= Queue()
-    inque.put(['rise_fall', ['fall'], 0])
-    news = Clova_News(inque, 0, 0)
+    inque.put(['recommend', [None], None])
+    news = Clova_News(inque, None, None)
 
     #news.recommend()
     # news.summary_all(news.recent_news('000660'))
