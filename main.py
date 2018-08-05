@@ -20,20 +20,20 @@ class ClovaServer(BaseHTTPRequestHandler):
         self.ix = self.reserving_queue()
         # do_main 함수는 json request 내 name과 똑같은 이름의 내부 함수를 실행하므로
         # 원하는 동작을 일으킬 함수는 그에 해당하는 intent와 똑같은 이름으로 정해줘야 함
-        try:
-            if self.body['request']['type'] == 'LaunchRequest':
-                self.set_response(
-                *('SimpleSpeech', '무엇을 도와드릴까요?', False, None, True, '도움말을 듣고 싶으시면 \"도움말 들려줘라고 말해 주세요.\"'))
-                self.do_response()
-            elif self.body['request']['intent']['name'] == 'Clova.GuideIntent':
-                self.set_response(*self.Help())
-                self.do_response()
-            else:
-                self.set_response(*getattr(self, self.body['request']['intent']['name'])())
-                self.do_response()
-        except (AttributeError, TypeError) as e:
-                self.set_response(*('SimpleSpeech', '다시 한 번 말씀해 주세요', False, None))
-                self.do_response()
+        #try:
+        if self.body['request']['type'] == 'LaunchRequest':
+            self.set_response(
+            *('SimpleSpeech', '무엇을 도와드릴까요?', False, None, True, '도움말을 듣고 싶으시면 \"도움말 들려줘라고 말해 주세요.\"'))
+            self.do_response()
+        elif self.body['request']['intent']['name'] == 'Clova.GuideIntent':
+            self.set_response(*self.Help())
+            self.do_response()
+        else:
+            self.set_response(*getattr(self, self.body['request']['intent']['name'])())
+            self.do_response()
+        # except (AttributeError, TypeError) as e:
+        #         self.set_response(*('SimpleSpeech', '다시 한 번 말씀해 주세요', False, None))
+        #         self.do_response()
 
         del self.speech_body, self.speech_type, self.shouldEndSession, self.sessionAttributes, \
             self.do_reprompt, self.reprompt_msg
@@ -129,9 +129,12 @@ class ClovaServer(BaseHTTPRequestHandler):
             except (KeyError, TypeError) as e:
                 code = None if 'code' not in locals() else code
                 return self.no_symbol(code)
+        else:
+            name = code_to_name[code]
 
         in_queue.put(['stock_summary', [code, name], self.ix])
-        _, out = out_queues[self.ix].get()
+        t = out_queues[self.ix].get()
+        _, out = t
         if no_news:
             msg = ['{}의 현재 주가는 {}으로 전날 대비 등락률 {}를 기록하고 있어요.'.format(name, out[0][0], out[0][2]).replace('-', '마이너스')] +\
                   ['{} 기준 수급은 기관 {}주 외국인 {}주에요.'.format(out[1][0], out[1][1], out[1][2]).replace('-', '마이너스')]
@@ -202,6 +205,7 @@ class ClovaServer(BaseHTTPRequestHandler):
         ii = 0
         while ii < len(valid_names):
             name, out = out_queues[self.ix].get()
+            ii += 1
             if type(out[2][0]) == int or type(out[2][0]) == float:
                 pass
             else:
@@ -216,7 +220,7 @@ class ClovaServer(BaseHTTPRequestHandler):
     def stockRecommend(self):
         in_queue.put(['recommend', [1, ], self.ix])
         recommend = out_queues[self.ix].get()
-        if len(recommend) -- 0:
+        if len(recommend) == 0:
             return 'SimpleSpeech', '오늘의 증권사 신규 추천 종목이 없어요. 내일을 기다려봐요.'
         else:
             symbol_recommend = []
@@ -233,15 +237,20 @@ class ClovaServer(BaseHTTPRequestHandler):
     def morningNews(self):
         import time
         a = time.time()
+        self.user = User(self.body['context']['System']['user']['userId'])
         msg = []
         msg += self.marketSummary('코스피')[1]
         msg += self.marketSummary('코스닥')[1]
         print('market done', a-time.time())
         a = time.time()
         msg += self.Rise()[1][:-1]
+        print('rise done', a-time.time())
+        a = time.time()
         msg += self.Fall()[1][:-1]
-        print('rise fall done', a-time.time())
+        print('fall done', a-time.time())
+        a = time.time()
         for code in self.user.data['symbol']:
+            print(code)
             a = time.time()
             msg += self.stockSummary(code, no_news=True)[1]
             print('summary per sec', a - time.time())
@@ -249,10 +258,14 @@ class ClovaServer(BaseHTTPRequestHandler):
             msg += self.recentNews(code)[1]
             print('news per sec', a - time.time())
         a = time.time()
-        msg += self.stockRecommend()
+        msg += [self.stockRecommend()[1]]
         print('recommend', a-time.time())
 
-        return 'SpeechList', msg, True
+        if len(self.user.data['symbol']) == 0:
+            msg += ['관심종목을 등록하시면 맞춤화 된 금융 뉴스를 받아 볼 수 있어요.']
+        for i, m in enumerate(msg):
+            print(i, type(m))
+        return 'SpeechList', msg, False, None
 
     def currentFavorite(self):
         self.user = User(self.body['context']['System']['user']['userId'])
@@ -308,7 +321,7 @@ class ClovaServer(BaseHTTPRequestHandler):
         in_queue.put(['recent_news', [code, NEWS_RECENT_DAY, MAX_NEWS_SUMMARY], self.ix])
         code, news_list = out_queues[self.ix].get()
         if type(news_list) != pd.DataFrame:
-            return 'SimpleSpeech', '24시간 내에 관련 종목 뉴스가 없어요', True, None
+            return 'SpeechList', ['24시간 내에 관련 종목 뉴스가 없어요'], True, None
         for kk, news in news_list.iterrows():
             in_queue.put(['do_summary', [news, SUMMARY_SENTENCES], self.ix])
         summaries = pd.DataFrame(columns=['title', 'summary'])

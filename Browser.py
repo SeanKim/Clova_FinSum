@@ -139,10 +139,11 @@ class Clova_News():
         out.append([date, korean, foreign])
 
         df = self.get_news(code, NEWS_RECENT_DAY, MAX_NEWS_SUMMARY)
-        if type(df) == str:
+        if type(df) == str or type(df) == type(None):
             out.append([-1, -1])
         else:
             out.append([df['Title'].values, df['Link'].values])
+
         self.out_queues[self.ix].put([name, out])
 
     def market_summary(self, *args):
@@ -194,12 +195,13 @@ class Clova_News():
                         title.startswith('[스팟') or \
                         title.startswith('[이데일리N') or \
                         title.startswith('[마켓포인') or \
-                        title.startswith('[표]'):
+                        title.startswith('[표]') or
+                        title.startswith('[fnRAS:
                     continue
                 date = tr.find_element_by_class_name('date').text
                 if pd.Timestamp(date) <= (
                 pd.Timestamp(datetime.datetime.utcnow() - pd.DateOffset(days=recent_day, hours=-9))):
-                    self.out_queues[self.ix].put([code, pd.concat(temps)] if len(temps) != 0 else self.out_queues[self.ix].put([code, '뉴스가 없습니다.']))
+                    self.out_queues[self.ix].put([code, pd.concat(temps)] if len(temps) != 0 else [code, '뉴스가 없습니다.'])
                     return
                 link = tr.find_element_by_tag_name('a').get_attribute("href")
 
