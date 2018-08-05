@@ -184,26 +184,18 @@ class ClovaServer(BaseHTTPRequestHandler):
 
         msg = ['코스피 중에서 가장 많이 {} 세 주식은 {}입니다. '.format(direction, ', '.join(valid_names))]
         #todo 뉴스리스트 한번에 넣고 코드별로 정리하게 하기
-        for n, code in enumerate(valid_list):
-            in_queue.put(['recent_news', [code, NEWS_RECENT_DAY, MAX_NEWS_SUMMARY], self.ix])
-            news_list = out_queues[self.ix].get()
-            if type(news_list) != pd.DataFrame:
+        for name, code in zip(valid_names, valid_list):
+            in_queue.put(['stock_summary', [code, name], self.ix])
+            _, out = out_queues[self.ix].get()
+            if type(out[2][0]) == int or type(out[2][0]) == float:
                 pass
             else:
-                word_df = None
-                for ii, news in news_list.iterrows():
-                    in_queue.put(['count_words', [news], self.ix])
-                kk = 0
-                while kk < len(news_list):
-                    if type(word_df) != pd.DataFrame:
-                        word_df = out_queues[self.ix].get()
-                        kk += 1
-                    else:
-                        word_df = word_df + out_queues[self.ix].get()
-                        kk += 1
-                msg += ['{}와 관련되어 가장 언급이 많이 된 단어 다섯가지는 {},'.format(valid_names[n], ', '.join(
-                    list(word_df.sort_values('count', ascending=False).index[:5].values)))]
-        msg += ['입니다']
+                n = ['{}과 관련 된 최근 뉴스는 '.format(name)]
+                print(len(out[2][0]))
+                for i in range(len(out[2][0])):
+                    n += [out[2][0][i]]
+                msg += n
+        msg += ['가 있어요.'] + ['자세한 뉴스 내용을 알고 싶으면. 종목이름과 함께 종목명 뉴스 요약해줘라고 말해주세요'.format(name)]
         return msg
 
     def stockRecommend(self):
