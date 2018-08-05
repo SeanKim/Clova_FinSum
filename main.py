@@ -20,29 +20,20 @@ class ClovaServer(BaseHTTPRequestHandler):
         self.ix = self.reserving_queue()
         # do_main 함수는 json request 내 name과 똑같은 이름의 내부 함수를 실행하므로
         # 원하는 동작을 일으킬 함수는 그에 해당하는 intent와 똑같은 이름으로 정해줘야 함
-        # try:
-        if self.body['request']['type'] == 'LaunchRequest':
-            self.set_response(
-            *('SimpleSpeech', '무엇을 도와드릴까요?', False, None, True, '도움말을 듣고 싶으시면 \"도움말 들려줘라고 말해 주세요.\"'))
-            self.do_response()
-        elif self.body['request']['intent']['name'] == 'Clova.GuideIntent':
-            self.set_response(*self.Help())
-            self.do_response()
-        else:
-            self.set_response(*getattr(self, self.body['request']['intent']['name'])())
-            self.do_response()
-        # except (AttributeError, TypeError) as e:
-        #     try:
-        #         if self.body['request']['type'] == 'LaunchRequest':
-        #             self.set_response(
-        #                 *('SimpleSpeech', '무엇을 도와드릴까요?', False, None, True, '도움말을 듣고 싶으시면 \"도움말 들려줘라고 말해 주세요.\"'))
-        #             self.do_response()
-        #         else:
-        #             self.set_response(*('SimpleSpeech', '다시 한 번 말씀해 주세요', False, None))
-        #             self.do_response()
-        #     except:
-        #         self.set_response(*('SimpleSpeech', '다시 한 번 말씀해 주세요', False, None))
-        #         self.do_response()
+        try:
+            if self.body['request']['type'] == 'LaunchRequest':
+                self.set_response(
+                *('SimpleSpeech', '무엇을 도와드릴까요?', False, None, True, '도움말을 듣고 싶으시면 \"도움말 들려줘라고 말해 주세요.\"'))
+                self.do_response()
+            elif self.body['request']['intent']['name'] == 'Clova.GuideIntent':
+                self.set_response(*self.Help())
+                self.do_response()
+            else:
+                self.set_response(*getattr(self, self.body['request']['intent']['name'])())
+                self.do_response()
+        except (AttributeError, TypeError) as e:
+                self.set_response(*('SimpleSpeech', '다시 한 번 말씀해 주세요', False, None))
+                self.do_response()
 
         del self.speech_body, self.speech_type, self.shouldEndSession, self.sessionAttributes, \
             self.do_reprompt, self.reprompt_msg
