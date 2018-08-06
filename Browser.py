@@ -73,8 +73,8 @@ class Clova_News():
 
     def recommend(self, __):
         from collections import Counter
-        today = (datetime.datetime.now() - datetime.timedelta(hours=9)).strftime('%Y-%m-%d')
-        sdate = (datetime.datetime.now() - datetime.timedelta(hours=9) - datetime.timedelta(days=3)).strftime('%Y-%m-%d')
+        today = datetime.datetime.now().strftime('%Y-%m-%d')
+        sdate = (datetime.datetime.now() - datetime.timedelta(days=3)).strftime('%Y-%m-%d')
         i = 1
         break_signal = False
         buys = []
@@ -111,7 +111,7 @@ class Clova_News():
             buys += list(buy[1].values)
             i += 1
         buys = [i[0] for i in Counter(buys).most_common(RECOMMEND_NUM)]
-        self.out_queues[self.ix].put(buys)    
+        self.out_queues[self.ix].put(buys)
 
     def stock_summary(self, *args):
         code = args[0]
@@ -195,7 +195,7 @@ class Clova_News():
                     continue
                 date = tr.find_element_by_class_name('date').text
                 if pd.Timestamp(date) <= (
-                pd.Timestamp(datetime.datetime.utcnow() - pd.DateOffset(days=recent_day, hours=-9))):
+                pd.Timestamp(datetime.datetime.utcnow() - pd.DateOffset(days=recent_day, hours=int(time.strftime("%H"))))):
                     self.out_queues[self.ix].put([code, pd.concat(temps)] if len(temps) != 0 else [code, '뉴스가 없습니다.'])
                     return
                 link = tr.find_element_by_tag_name('a').get_attribute("href")
@@ -236,11 +236,12 @@ class Clova_News():
                         title.startswith('[스팟') or \
                         title.startswith('[이데일리N') or \
                         title.startswith('[마켓포인') or \
-                        title.startswith('[표]'):
+                        title.startswith('[표]') or 
+                        title.startswith('[fnRAS'):
                     continue
                 date = tr.find_element_by_class_name('date').text
                 if pd.Timestamp(date) <= (
-                        pd.Timestamp(datetime.datetime.utcnow() - pd.DateOffset(days=recent_day, hours=-9))):
+                        pd.Timestamp(datetime.datetime.utcnow() - pd.DateOffset(days=recent_day, hours=int(time.strftime('%H'))))):
                     if len(temps) != 0:
                         return pd.concat(temps)
                     else:
@@ -325,22 +326,6 @@ class Clova_News():
                 self.content = self.content.replace(obj.text, "")
         self.content.replace('[]', '')
 
-    def read_news2(self):
-        soup = BeautifulSoup(requests.get(self.link).content, 'lxml')
-        self.title = soup.find('strong', {'class': 'c p15'}).text
-        soup = soup.find('div', {'id': 'news_read'})
-        news_text = soup.text
-        try:
-            exception = soup.find('strong').text
-        except:
-            exception = None
-        for red in soup.findChildren():
-            if not red.text == exception:
-                news_text = news_text.replace(red.text, '')
-        news_text = news_text.replace('[]', '')
-        self.content = news_text
-        self.summary = ''
-
     def count_words(self, *args):
         news = args[0]
         self.link = news['Link']
@@ -399,9 +384,14 @@ class Clova_News():
         for i, sentence in enumerate(sentences):
             score = 0
             for morph in morphs:
-                if sentence.find(morph) >= 0 and len(morph) > 1:
-                    score += len(morph)
+                if sentence.find(morph) >= 0 and (sentence[-1]=="다"):
+                    score += 1
+            if len(sentence) != 0:
+                if sentence.find('"') >= 0 and sentence[-1]=="다":
+                    score += 1
             dic[i] = score
+            if sentence == self.title:
+                dic[i] = 0
 
         dic = collections.OrderedDict(sorted(dic.items(), key=lambda t: t[1], reverse=True))
 
@@ -417,151 +407,6 @@ class Clova_News():
         # print("Title :", self.title)
         for key in sentence_keys:
             self.summary += sentences[key] + ". "
-
-    def summarize2(self):
-        print(self.link)
-        temp_summaries = []
-        sentences = self.__split_sentences('. ', '? ', '! ', '\n', '.\n', ';', )(self.content)
-        keys = self.__keywords()
-        title_words = self.__split_words(self.title)
-        ranks = self.__score(sentences, title_words, keys).most_common(3)
-        for rank in ranks:
-            temp_summaries.append(rank[0])
-        temp_summaries.sort(key=lambda summary: summary[0])
-        self.summary = '. '.join([summary[1] for summary in temp_summaries]) + '.'
-
-    def __split_sentences(self, *delimiters):
-        return lambda value: re.split('|'.join([re.escape(delimiter) for delimiter in delimiters]), value)
-
-    def __split_words(self, sentence):
-        """Split a string into array of words
-        """
-        try:
-            sentence = re.sub(r'[^\w ]', '', sentence)  # strip special chars
-            return [x.strip('.').lower() for x in sentence.split()]
-        except TypeError:
-            return None
-
-    def __load_stopwords(self):
-        with open('./stopwords.txt', encoding='utf-8') as f:
-            self.stopwords = set()
-            self.stopwords.update(set([w.strip() for w in f.readlines()]))
-
-    def __keywords(self):
-        NUM_KEYWORDS = 10
-        text = self.__split_words(self.content)
-        # of words before removing blacklist words
-        if text:
-            num_words = len(text)
-            text = [x for x in text if x not in self.stopwords]
-            freq = {}
-            for word in text:
-                if word in freq:
-                    freq[word] += 1
-                else:
-                    freq[word] = 1
-
-            min_size = min(NUM_KEYWORDS, len(freq))
-            keywords = sorted(freq.items(),
-                              key=lambda x: (x[1], x[0]),
-                              reverse=True)
-            keywords = keywords[:min_size]
-            keywords = dict((x, y) for x, y in keywords)
-
-            for k in keywords:
-                articleScore = keywords[k] * 1.0 / max(num_words, 1)
-                keywords[k] = articleScore * 1.5 + 1
-            return dict(keywords)
-        else:
-            return dict()
-
-    def __title_score(self, title, sentence):
-        if title:
-            title = [x for x in title if x not in self.stopwords]
-            count = 0.0
-            for word in sentence:
-                if (word not in self.stopwords and word in title):
-                    count += 1.0
-            return count / max(len(title), 1)
-        else:
-            return 0
-
-    def __sentence_position(self, i, size):
-        normalized = i * 1.0 / size
-        if (normalized > 1.0):
-            return 0
-        elif (normalized > 0.9):
-            return 0.15
-        elif (normalized > 0.8):
-            return 0.04
-        elif (normalized > 0.7):
-            return 0.04
-        elif (normalized > 0.6):
-            return 0.06
-        elif (normalized > 0.5):
-            return 0.04
-        elif (normalized > 0.4):
-            return 0.05
-        elif (normalized > 0.3):
-            return 0.08
-        elif (normalized > 0.2):
-            return 0.14
-        elif (normalized > 0.1):
-            return 0.23
-        elif (normalized > 0):
-            return 0.17
-        else:
-            return 0
-
-    def __length_score(self, sentence_len):
-        return 1 - math.fabs(20 - sentence_len) / 20
-
-    def __sbs(self, words, keywords):
-        score = 0.0
-        if (len(words) == 0):
-            return 0
-        for word in words:
-            if word in keywords:
-                score += keywords[word]
-        return (1.0 / math.fabs(len(words)) * score) / 10.0
-
-    def __dbs(self, words, keywords):
-        if (len(words) == 0):
-            return 0
-        summ = 0
-        first = []
-        second = []
-
-        for i, word in enumerate(words):
-            if word in keywords:
-                score = keywords[word]
-                if first == []:
-                    first = [i, score]
-                else:
-                    second = first
-                    first = [i, score]
-                    dif = first[0] - second[0]
-                    summ += (first[1] * second[1]) / (dif ** 2)
-        # Number of intersections
-        k = len(set(keywords.keys()).intersection(set(words))) + 1
-        return (1 / (k * (k + 1.0)) * summ)
-
-    def __score(self, sentences, title_words, keywords):
-        senSize = len(self.content)
-        ranks = Counter()
-        for i, s in enumerate(sentences):
-            sentence = self.__split_words(s)
-            titleFeature = self.__title_score(title_words, sentence)
-            sentenceLength = self.__length_score(len(sentence))
-            sentencePosition = self.__sentence_position(i + 1, senSize)
-            sbsFeature = self.__sbs(sentence, keywords)
-            dbsFeature = self.__dbs(sentence, keywords)
-            frequency = (sbsFeature + dbsFeature) / 2.0 * 10.0
-            # Weighted average of scores from four categories
-            totalScore = (titleFeature * 1.5 + frequency * 2.0 +
-                          sentenceLength * 1.0 + sentencePosition * 1.0) / 4.0
-            ranks[(i, s)] = totalScore
-        return ranks
 
     def __del__(self):
         self.driver.close()
