@@ -248,33 +248,18 @@ class ClovaServer(BaseHTTPRequestHandler):
         import time
         a = time.time()
         self.user = User(self.body['context']['System']['user']['userId'])
+        if len(self.user.data['symbol']) == 0:
+            return 'SimpleSpeech', '맞춤뉴스 제작을 위해서 관심종목을 알아야 해요. 삼성전자 관심종목 추가라고 말해서 관심종목을 등록해보세요.', False
         msg = []
         msg += self.marketSummary('코스피')[1]
         msg += self.marketSummary('코스닥')[1]
-        print('market done', a-time.time())
-        a = time.time()
         msg += self.Rise()[1][:-1]
-        print('rise done', a-time.time())
-        a = time.time()
         msg += self.Fall()[1][:-1]
-        print('fall done', a-time.time())
-        a = time.time()
         for code in self.user.data['symbol']:
-            print(code)
-            a = time.time()
             msg += self.stockSummary(code, no_news=True)[1]
-            print('summary per sec', a - time.time())
-            a = time.time()
             msg += self.recentNews(code)[1]
-            print('news per sec', a - time.time())
-        a = time.time()
         msg += [self.stockRecommend()[1]]
-        print('recommend', a-time.time())
-
-        if len(self.user.data['symbol']) == 0:
-            msg += ['관심종목을 등록하시면 맞춤화 된 금융 뉴스를 받아 볼 수 있어요.']
-        for i, m in enumerate(msg):
-            print(i, type(m))
+        print('done', a-time.time())
         return 'SpeechList', msg, True, None
 
     def currentFavorite(self):
