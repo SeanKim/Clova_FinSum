@@ -11,8 +11,7 @@ import numpy as np
 import pandas as pd
 import requests
 
-import jpype
-from konlpy.tag import Mecab, Twitter, Kkma
+from konlpy.tag import Mecab
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions
@@ -30,12 +29,9 @@ class Clova_News():
         self.summary = ''
         self.dart_api = 'd74599ed29c73354a63fa01fabb53271a717545a'
         self.options = webdriver.ChromeOptions()
-        self.nlp = Twitter()
-        kkma = Kkma()
-        self.to_nouns = kkma.nouns
+        self.nlp = Mecab()
+        self.to_nouns = Mecab.nouns 
         self.__load_stopwords()
-        if not jpype.isJVMStarted():
-            jvm.init_jvm()
 
         self.options.add_argument('headless')
         self.options.add_argument('window-size=1920x1080')

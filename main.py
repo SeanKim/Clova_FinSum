@@ -353,7 +353,7 @@ class server_class(ThreadingMixIn, HTTPServer):
     pass
 
 
-def run(handler_class=ClovaServer, port=80): \
+def run(handler_class=ClovaServer, port=3307): \
         # threading
     server_address = ('', port)
     httpd = server_class(server_address, handler_class)
@@ -369,5 +369,5 @@ def run(handler_class=ClovaServer, port=80): \
 
 if __name__ == '__main__':
     print('because of low processing power, number of processes is set as 2.')
-    set_env(2)
+    set_env(4)
     run()
