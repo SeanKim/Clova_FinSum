@@ -20,20 +20,20 @@ class ClovaServer(BaseHTTPRequestHandler):
         self.ix = self.reserving_queue()
         # do_main 함수는 json request 내 name과 똑같은 이름의 내부 함수를 실행하므로
         # 원하는 동작을 일으킬 함수는 그에 해당하는 intent와 똑같은 이름으로 정해줘야 함
-        #try:
-        if self.body['request']['type'] == 'LaunchRequest':
-            self.set_response(
-            *('SimpleSpeech', '무엇을 도와드릴까요?', False, None, True, '도움말을 듣고 싶으시면 \"도움말 들려줘라고 말해 주세요.\"'))
-            self.do_response()
-        elif self.body['request']['intent']['name'] == 'Clova.GuideIntent':
-            self.set_response(*self.Help())
-            self.do_response()
-        else:
-            self.set_response(*getattr(self, self.body['request']['intent']['name'])())
-            self.do_response()
-        # except (AttributeError, TypeError) as e:
-        #         self.set_response(*('SimpleSpeech', '다시 한 번 말씀해 주세요', False, None))
-        #         self.do_response()
+        try:
+            if self.body['request']['type'] == 'LaunchRequest':
+                self.set_response(
+                *('SimpleSpeech', '무엇을 도와드릴까요?', False, None, True, '도움말을 듣고 싶으시면 \"도움말 들려줘라고 말해 주세요.\"'))
+                self.do_response()
+            elif self.body['request']['intent']['name'] == 'Clova.GuideIntent':
+                self.set_response(*self.Help())
+                self.do_response()
+            else:
+                self.set_response(*getattr(self, self.body['request']['intent']['name'])())
+                self.do_response()
+        except (AttributeError, TypeError) as e:
+                self.set_response(*('SimpleSpeech', '다시 한 번 말씀해 주세요', False, None))
+                self.do_response()
 
         del self.speech_body, self.speech_type, self.shouldEndSession, self.sessionAttributes, \
             self.do_reprompt, self.reprompt_msg
@@ -120,6 +120,7 @@ class ClovaServer(BaseHTTPRequestHandler):
                     ['그 외에도 코스닥 시장 요약해줘'] + ['네이버 종목 요약해줘'] + ['삼성전자 뉴스 요약해줘'] +\
                     ['추천 종목 알려줘'] + ['가장 많이 떨어진 종목 알려줘와 같은 기능이 있어요.'] +\
                   ['자세한 사용방법을 알고 싶으시면 클로바 확장 서비스 관리, 금융비서에 들어가 보세요.'], False
+
 
     def stockSummary(self, code=None, no_news=False):
         if code == None:
@@ -234,6 +235,15 @@ class ClovaServer(BaseHTTPRequestHandler):
             else:
                 return 'SimpleSpeech', '오늘의 증권사 신규 추천 종목은 {}가 있어요.'.format(', '.join(symbol_recommend))
 
+    def summaryFavorite(self):
+        self.user = User(self.body['context']['System']['user']['userId'])
+        msg = []
+        for code in self.user.data['symbol']:
+            print(code)
+            msg += self.stockSummary(code, no_news=True)[1]
+        msg += ['자세한 뉴스 내용을 알고싶으시면 종목이름 뉴스 알려줘 라고 말씀해주세요.']
+        return 'SpeechList', msg, True, None
+
     def morningNews(self):
         import time
         a = time.time()
@@ -265,13 +275,13 @@ class ClovaServer(BaseHTTPRequestHandler):
             msg += ['관심종목을 등록하시면 맞춤화 된 금융 뉴스를 받아 볼 수 있어요.']
         for i, m in enumerate(msg):
             print(i, type(m))
-        return 'SpeechList', msg, False, None
+        return 'SpeechList', msg, True, None
 
     def currentFavorite(self):
         self.user = User(self.body['context']['System']['user']['userId'])
         cfs = ', '.join([code_to_name[symbol] for symbol in self.user.data['symbol']])
         print(self.user.data)
-        return 'SimpleSpeech', '현재 관심종목은 {}입니다'.format(cfs), True, None
+        return 'SimpleSpeech', '현재 관심종목은 {}입니다'.format(cfs), False, None
 
     def removeFavorite(self):
         self.user = User(self.body['context']['System']['user']['userId'])
@@ -369,5 +379,5 @@ def run(handler_class=ClovaServer, port=3307): \
 
 if __name__ == '__main__':
     print('because of low processing power, number of processes is set as 2.')
-    set_env(4)
+    set_env(6)
     run()
