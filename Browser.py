@@ -72,13 +72,15 @@ class Clova_News():
         self.tickers = tickers
 
     def recommend(self, __):
+        from collections import Counter
         today = (datetime.datetime.now() - datetime.timedelta(hours=9)).strftime('%Y-%m-%d')
+        sdate = (datetime.datetime.now() - datetime.timedelta(hours=9) - datetime.timedelta(days=3)).strftime('%Y-%m-%d')
         i = 1
         break_signal = False
         buys = []
         while not break_signal:
-            self.driver.get('http://hkconsensus.hankyung.com/apps.analysis/analysis.list?skinType=business&sdate={}&edate={}&pagenum=80&order_type=&now_page={}'.format(today, today, i))
-            print('http://hkconsensus.hankyung.com/apps.analysis/analysis.list?skinType=business&sdate={}&edate={}&pagenum=80&order_type=&now_page={}'.format(today, today, i))
+            self.driver.get('http://hkconsensus.hankyung.com/apps.analysis/analysis.list?skinType=business&sdate={}&edate={}&pagenum=80&order_type=&now_page={}'.format(sdate, today, i))
+            print('http://hkconsensus.hankyung.com/apps.analysis/analysis.list?skinType=business&sdate={}&edate={}&pagenum=80&order_type=&now_page={}'.format(sdate, today, i))
             WebDriverWait(self.driver, 10).until(expected_conditions.element_to_be_clickable(
                 (By.XPATH, '//*/div[2]/table/thead/tr/th[2]/a')))
             html = self.driver.page_source
@@ -101,18 +103,15 @@ class Clova_News():
 
                 jContents.append(jdate)
                 #if pd.Timestamp(self.recommend_df.iloc[0,0]) - pd.DateOffset(days=1) >= pd.Timestamp(jdate):
-                if jdate != today:
-                    print(break_signal)
-                    break_signal = True
-                    break
                 jContents.append(jstock_name)
                 jContents.append(jopinion)
                 iContents.append(jContents)
-                result = pd.DataFrame(iContents)
-                buy = result[(result[2] == "Buy") | (result[2] == "Strong Buy")]
-                buys = buy[1].values
+            result = pd.DataFrame(iContents)
+            buy = result[(result[2] == "Buy") | (result[2] == "Strong Buy")]
+            buys += list(buy[1].values)
             i += 1
-        self.out_queues[self.ix].put(buys)
+        buys = [i[0] for i in Counter(buys).most_common(RECOMMEND_NUM)]
+        self.out_queues[self.ix].put(buys)    
 
     def stock_summary(self, *args):
         code = args[0]
