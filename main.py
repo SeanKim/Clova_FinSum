@@ -8,6 +8,9 @@ import pandas as pd
 from Browser import Clova_News
 from data import User
 from collections import defaultdict
+import os
+import pickle, time
+
 
 class ClovaServer(BaseHTTPRequestHandler):
     def set_header(self):
@@ -18,6 +21,7 @@ class ClovaServer(BaseHTTPRequestHandler):
     def do_main(self):
         self.user = None
         self.ix = self.reserving_queue()
+        self.make_news = False
         # do_main 함수는 json request 내 name과 똑같은 이름의 내부 함수를 실행하므로
         # 원하는 동작을 일으킬 함수는 그에 해당하는 intent와 똑같은 이름으로 정해줘야 함
         try:
@@ -37,6 +41,8 @@ class ClovaServer(BaseHTTPRequestHandler):
 
         del self.speech_body, self.speech_type, self.shouldEndSession, self.sessionAttributes, \
             self.do_reprompt, self.reprompt_msg
+        if self.make_news:
+            Process(target=self.makeNews).start()
         flags[self.ix] = 0
 
     def do_POST(self):
@@ -244,9 +250,10 @@ class ClovaServer(BaseHTTPRequestHandler):
         msg += ['자세한 뉴스 내용을 알고싶으시면 종목이름 뉴스 알려줘 라고 말씀해주세요.']
         return 'SpeechList', msg, True, None
 
-    def morningNews(self):
-        import time
-        a = time.time()
+    def makeNews(self):
+        user_id = self.body['context']['System']['user']['userId']
+        with open('./news/{}'.format(user_id),'w') as f:
+            f.writelines(' ')
         self.user = User(self.body['context']['System']['user']['userId'])
         if len(self.user.data['symbol']) == 0:
             return 'SimpleSpeech', '맞춤뉴스 제작을 위해서 관심종목을 알아야 해요. 삼성전자 관심종목 추가라고 말해서 관심종목을 등록해보세요.', False
@@ -259,8 +266,23 @@ class ClovaServer(BaseHTTPRequestHandler):
             msg += self.stockSummary(code, no_news=True)[1]
             msg += self.recentNews(code)[1]
         msg += [self.stockRecommend()[1]]
-        print('done', a-time.time())
-        return 'SpeechList', msg, True, None
+        with open('./news/{}_{}'.format(time.strftime('%d'),user_id),'wb') as f:
+            pickle.dump(msg, f)
+        os.remove('./news/{}'.format(user_id))
+
+    def morningNews(self):
+        user_id = self.body['context']['System']['user']['userId']
+        try:
+            with open('./news/{}_{}'.format(time.strftime('%d'),user_id),'rb') as f:
+                msg = pickle.load(f)
+            return 'SpeechList', msg, True, None    
+        except:
+            if os.path.exists('./news/{}'.format(user_id)):
+                return 'SimpleSpeech', '뉴스가 아직 제작되고 있어요 잠시만 기다려주세요.'
+            else:
+                self.make_news = True
+                return 'SimpleSpeech', '오늘자 맞춤 뉴스를 제작하고 있어요. 1분 뒤에 다시 불러 주세요. "맞춤 뉴스 만들어줘"라고 말해서 미리 만들어 둘 수 있어요.', True, None
+
 
     def currentFavorite(self):
         self.user = User(self.body['context']['System']['user']['userId'])
