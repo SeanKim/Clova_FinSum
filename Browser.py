@@ -271,34 +271,57 @@ class Clova_News():
             p += 1
             time.sleep(random.uniform(0.02, 0.04))
 
-    def get_filing(self):  # 인스턴스 데이터프레임에 Profile이라는 column을 만들고, 해당 칼럼에 Ticker에 해당하는 Profile을 저장함
-        for i, ticker in enumerate(self.tickers):
-            print(ticker, end=' ')
-            url = 'https://dart.fss.or.kr/html/search/SearchCompany_M2.html?textCrpNM=' + str(ticker)
-            print(url)
-            try:
-                self.driver.get(url)
-            except:
-                pass
+    def get_filing(self, *args):  # 인스턴스 데이터프레임에 Profile이라는 column을 만들고, 해당 칼럼에 Ticker에 해당하는 Profile을 저장함
+        name = args[0]
+        out = []
+        url = 'https://dart.fss.or.kr/html/search/SearchCompany_M2.html?textCrpNM=' + name
+        print(url)
+        try:
+            self.driver.get(url)
+        except:
+            pass
 
-            try:
-                WebDriverWait(self.driver, 10).until(expected_conditions.element_to_be_clickable(
-                    (By.XPATH, '//*[@id="listContents"]/div[1]/table/tbody/tr[15]')))
-                xpath = self.driver.find_element_by_xpath('//*[@id="listContents"]/div[1]/table/tbody')
-                trs = xpath.find_elements_by_tag_name('tr')
-                for tr in trs:
-                    tds = tr.find_elements_by_tag_name('td')
-                    print("Date:", tds[4].text, end='  ')
-                    print('Title : {0}    Link : {1}'.format(tds[2].text,
-                                                             tds[2].find_element_by_tag_name('a').get_attribute(
-                                                                 "href")))
-                print(str((i + 1) / len(self.tickers) * 100) + "%", "done")
+        try:
+            WebDriverWait(self.driver, 10).until(expected_conditions.element_to_be_clickable(
+                (By.XPATH, '//*[@id="listContents"]/div[1]/table/tbody/tr[15]')))
+            xpath = self.driver.find_element_by_xpath('//*[@id="listContents"]/div[1]/table/tbody')
+            trs = xpath.find_elements_by_tag_name('tr')
+            for tr in trs:
+                tds = tr.find_elements_by_tag_name('td')
+                if not pd.Timestamp(tds[4].text) <= (
+                        pd.Timestamp(datetime.datetime.now() - pd.DateOffset(days=FILING_RECENT_DAY,
+                                                                             hours=int(time.strftime("%H"))))):
+                    out.append([name, tds[4].text, tds[2].text, str(tds[2].find_element_by_tag_name('a').get_attribute("href"))])
+        except:
+            print("error on :", name)
+        self.out_queues[self.ix].put(out)
 
-            except:
-                print("error on :", ticker)
+    def get_filing2(self, *args):  # 인스턴스 데이터프레임에 Profile이라는 column을 만들고, 해당 칼럼에 Ticker에 해당하는 Profile을 저장함
+        name = args[0]
+        out = []
+        url = 'https://dart.fss.or.kr/html/search/SearchCompany_M2.html?textCrpNM=' + name
+        print(url)
+        try:
+            self.driver.get(url)
+        except:
+            pass
+        try:
+            WebDriverWait(self.driver, 10).until(expected_conditions.element_to_be_clickable(
+                (By.XPATH, '//*[@id="listContents"]/div[1]/table/tbody/tr[15]')))
+            xpath = self.driver.find_element_by_xpath('//*[@id="listContents"]/div[1]/table/tbody')
+            trs = xpath.find_elements_by_tag_name('tr')
+            for tr in trs:
+                tds = tr.find_elements_by_tag_name('td')
+                if not pd.Timestamp(tds[4].text) <= (
+                        pd.Timestamp(datetime.datetime.now() - pd.DateOffset(days=FILING_RECENT_DAY,
+                                                                             hours=int(time.strftime("%H"))))):
+                    out.append([name, tds[4].text, tds[2].text, str(tds[2].find_element_by_tag_name('a').get_attribute("href"))])
+                    return out
+        except:
+            print("error on :", name)
 
-            print()
-            time.sleep(random.uniform(0.05, 0.1))
+        return out
+
 
     def get_filing_api(self, start_date=(datetime.date.today() - datetime.timedelta(1)).strftime('%Y%m%d')):
         for i, ticker in enumerate(self.tickers):
