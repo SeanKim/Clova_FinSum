@@ -279,6 +279,8 @@ class ClovaServer(BaseHTTPRequestHandler):
 
     def currentFavorite(self):
         self.user = User(self.body['context']['System']['user']['userId'])
+        if len(self.user.data['symbol']) == 0:
+            return 'SimpleSpeech', '현재 관심종목이 없습니다.', False, None
         cfs = ', '.join([code_to_name[symbol] for symbol in self.user.data['symbol']])
         print(self.user.data)
         return 'SimpleSpeech', '현재 관심종목은 {}입니다'.format(cfs), False, None

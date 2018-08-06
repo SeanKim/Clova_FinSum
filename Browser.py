@@ -68,6 +68,14 @@ class Clova_News():
             func_name, args, self.ix = task[0], task[1], task[2]
             getattr(self, func_name)(*args)
 
+    def __split_sentences(self, *delimiters):   
+        return lambda value: re.split('|'.join([re.escape(delimiter) for delimiter in delimiters]), value)
+
+    def __load_stopwords(self):
+        with open('./stopwords.txt', encoding='utf-8') as f:
+            self.stopwords = set()
+            self.stopwords.update(set([w.strip() for w in f.readlines()]))
+
     def set_tickers(self, tickers):
         self.tickers = tickers
 
@@ -191,7 +199,8 @@ class Clova_News():
                         title.startswith('[이데일리N') or \
                         title.startswith('[마켓포인') or \
                         title.startswith('[표]') or \
-                        title.startswith('[fnRAS'):
+                        title.startswith('[fnRAS') or \
+                        title.startswith('<코>'):
                     continue
                 date = tr.find_element_by_class_name('date').text
                 if pd.Timestamp(date) <= (
@@ -236,8 +245,9 @@ class Clova_News():
                         title.startswith('[스팟') or \
                         title.startswith('[이데일리N') or \
                         title.startswith('[마켓포인') or \
-                        title.startswith('[표]') or 
-                        title.startswith('[fnRAS'):
+                        title.startswith('[표]') or \
+                        title.startswith('[fnRAS') or \
+                        title.startswith('<코>'):
                     continue
                 date = tr.find_element_by_class_name('date').text
                 if pd.Timestamp(date) <= (
