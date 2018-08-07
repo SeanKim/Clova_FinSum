@@ -341,8 +341,16 @@ class Clova_News():
         # self.driver.execute_script("return document.readyState").equal('complete')
         # self.driver.get('about:blank')
         self.driver.get(self.link)
-        WebDriverWait(self.driver, 10).until(expected_conditions.element_to_be_clickable(
-            (By.XPATH, '//*[@id="content"]/div[2]/table/tbody/tr[1]/th/strong')))
+
+        get = False
+        while get == True:
+            try:
+                WebDriverWait(self.driver, 2).until(expected_conditions.element_to_be_clickable(
+                    (By.XPATH, '//*[@id="content"]/div[2]/table/tbody/tr[1]/th/strong')))
+                get = True
+            except:
+                time.sleep(random.uniform(0.02, 0.04))        
+
         xpath = self.driver.find_element_by_xpath('//*[@id="content"]/div[2]/table/tbody/tr[1]/th/strong')
         self.title = xpath.text
         xpath = self.driver.find_element_by_xpath('//*[@id="news_read"]')
