@@ -32,7 +32,7 @@ class ClovaServer(BaseHTTPRequestHandler):
             else:
                 self.set_response(*getattr(self, self.body['request']['intent']['name'])())
                 self.do_response()
-        except (AttributeError, TypeError) as e:
+        except:
                 try:
                     self.ing()
                     self.do_response()
@@ -393,6 +393,6 @@ def run(handler_class=ClovaServer, port=3307):
 
 
 if __name__ == '__main__':
-    print('because of low processing power, number of processes is set as 2.')
+    print('Starting...')
     set_env(6)
     run()

@@ -106,7 +106,10 @@ class Clova_News():
             for j in range(0, len(stock_name)):
                 jContents = []
                 jdate = date[j].text.strip()
-                jstock_name = stock_name[j].text.strip().split('(')[1].split(')')[0]
+                try:
+                    jstock_name = stock_name[j].text.strip().split('(')[1].split(')')[0]
+                except:
+                    continue
                 jopinion = opinion[3 + 9 * j].text.strip()
 
                 jContents.append(jdate)
