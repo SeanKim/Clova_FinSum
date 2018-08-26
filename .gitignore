@@ -1,6 +1,8 @@
 .*
 user_data/*
+news/*
+*.txt
 *.pem
 !.gitignore
-chromedriver.exe
+*.exe
 _*
