@@ -348,7 +348,7 @@ class ClovaServer(BaseHTTPRequestHandler):
         if type(news_list) != pd.DataFrame:
             return 'SpeechList', ['24시간 내에 관련 종목 뉴스가 없어요'], True, None
         for kk, news in news_list.iterrows():
-            in_queue.put(['do_summary', [news, SUMMARY_SENTENCES], self.ix])
+            in_queue.put(['do_summary', [news, name, SUMMARY_SENTENCES], self.ix])
         summaries = pd.DataFrame(columns=['title', 'summary'])
         while len(summaries) < len(news_list):
             summaries = summaries.append(out_queues[self.ix].get())
