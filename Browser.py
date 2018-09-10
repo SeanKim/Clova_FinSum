@@ -172,6 +172,9 @@ class Clova_News():
 
         self.out_queues[self.ix].put(out)
 
+
+
+
     def recent_news(self, *args):
         code = args[0]
         recent_day = args[1]
@@ -404,21 +407,16 @@ class Clova_News():
 
     def do_summary(self, *args):
         news = args[0]
-        name = args[1]
-        summary_num = args[2]
-        name = args[1]
+        summary_num = args[1]
         self.link = news['Link']
         self.read_news()
-        self.summarize(name, num=summary_num)
+        self.summarize(num=summary_num)
         self.out_queues[self.ix].put(pd.DataFrame([[self.title, self.summary]], columns=['title', 'summary']))
 
-
-
-    def summarize(self, name, num=3, select_list=SELECT_LIST):
-        #print(self.link)
+    def summarize(self, num=3, select_list=SELECT_LIST):
+        print(self.link)
         morphs = np.array(self.nlp.pos(self.title))
-        #print(morphs)
-        filter_func = lambda t: True if (t[1] in select_list) and len(t[0]) >= 1 else False
+        filter_func = lambda t: True if (t[1] in select_list) and len(t[0]) >= 2 else False
         remain_index = np.array([filter_func(x) for x in morphs])
         morphs = morphs[remain_index]
         morphs = list(map(lambda t: t[0], morphs))
@@ -426,22 +424,15 @@ class Clova_News():
 
         dic = {}
         sentence_keys = []
-        lead = False
-        #print(morphs)
+
         for i, sentence in enumerate(sentences):
             score = 0
-            if len(sentence) != 0 and sentence[-1] == "다":
-                if not lead:
-                    score += 9999
-                    lead = True
-                else:
-                    for morph in morphs:
-                        if sentence.find(morph) >= 0:
-                            score += 1
-                    if (sentence.find('"') >= 0 or sentence.find('“') >= 0):
-                        score += 3
-                    if sentence.find(name) >= 0:
-                        score += 2
+            for morph in morphs:
+                if sentence.find(morph) >= 0 and (sentence[-1]=="다"):
+                    score += 1
+            if len(sentence) != 0:
+                if sentence.find('"') >= 0 and sentence[-1]=="다":
+                    score += 1
             dic[i] = score
             if sentence == self.title:
                 dic[i] = 0
@@ -470,9 +461,8 @@ if __name__ == '__main__':
     inque= Queue()
     outqueues = []
     outqueues.append(Queue())
-    inque.put(['do_summary', ['https://news.naver.com/main/hotissue/read.nhn?mid=hot&sid1=104&cid=1035322&iid=26479823&oid=421&aid=0003577809&ptype=052', ], 0])
+    inque.put(['rise_fall', ['rise'], 0])
     news = Clova_News(inque, outqueues, 0)
-    print(news)
 
     #news.recommend()
     # news.summary_all(news.recent_news('000660'))
